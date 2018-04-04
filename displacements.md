@@ -3,14 +3,8 @@ Source Displacement System
 Per-vertex data for displacements is organised into rows
 The number of rows and columns is dependent on the "power" of the displacement
 
-Power 2 has 24
-4 for the base square
-+ 5 for the first subdivision
-+ 5 * 4 for the second subdivision
-- 2 for overlap
-
-OR (2^Power + 1) ^ 2
-as each row is split into 2^Power + 1 points
+Power 2 has 24: (2^Power + 1) ^ 2
+Each row is split into 2^Power + 1 points
 and this value is squared as displacements always have a 4 sided base
 
 Each row contains sets of 3 floats, defining vectors
