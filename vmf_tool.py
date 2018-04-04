@@ -6,17 +6,13 @@
 # -- del self.dict
 # compare named tuple performance
 # python 3.7 (f-strings & dataclasses)
-# profiling (minimise redundant actions)
-# entitiy I/O representation (html? html based editor?)
-# .js conversion for web-editor
+# entitiy I/O visualisation (html? html based editor?)
+# .js version for web-editor
 # -- does js have a faster importer? (builtins)
 # .vmf diff (utilise difflib)
 # -- export to vmf
 # --- two visgroups, one for each map
 # --- only diffent solids / entities
-# use } as an indication of a downshift
-# -- some key-value pairs are downshifted (e.g. entity: connections {}, origin)
-# -- if you don't downshift you'll misplace your keys -- #
 
 ##VMT_TOOL
 # This almost works with .vmt but headers are occasionally in quotes
@@ -26,7 +22,7 @@
 # Water makes for the most complex .vmt(s) AFAIK
 
 ##QUESTIONS:
-# can this code be used for .bsp entities
+# can this code be used for .bsp entitiy lumps?
 # -- are bsp entities ever multi-dimensional?
 
 def pluralise(word):
@@ -78,20 +74,25 @@ class scope:
 class vmf:
     def __init__(self, file):
         self.filename = file.name
-        whole_file = file.read().replace('{', '').replace('}', '') # use readlines instead?
         self.dict = {}
         current_scope = scope()
         line_no = 1
         tab_depth = -1
-        for line in whole_file.split('\n'):
+        for line in file.readlines():
 ##            print(line_no, line)
             line_no +=1
 ##            if line_no > 420:
 ##                raise RuntimeError()
             new_tab_depth = line.count('\t')
             line = line.lstrip('\t')
-            if line == '':
+            line = line.rstrip('\n')
+            if line == '' or line == '{' or line == '}':
                 pass
+##          elif line == '}':
+##              print('*** DOWNSHIFTING ***')
+##              print(current_scope, '>>>', end=' ')
+##              current_scope.reduce(tab_depth - new_tab_depth + 1)
+##              print(current_scope)
             elif '"' not in line:
                 if new_tab_depth == 0:
 ##                    print('*** RESETTING SCOPE ***')
