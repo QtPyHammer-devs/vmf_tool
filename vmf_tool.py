@@ -78,7 +78,7 @@ class scope:
 class vmf:
     def __init__(self, file):
         self.filename = file.name
-        whole_file = file.read().replace('{', '').replace('}', '')        
+        whole_file = file.read().replace('{', '').replace('}', '') # use readlines instead?
         self.dict = {}
         current_scope = scope()
         line_no = 1
