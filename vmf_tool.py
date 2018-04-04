@@ -1,19 +1,22 @@
 ##TODO:
 # write to file (export)
 # setattr version & speed compare
-# named tuple
+# -- for key in self.dict.keys():
+# --    setattr(self, key, self.dict[key])
+# -- del self.dict
+# compare named tuple performance
 # python 3.7 (f-strings & dataclasses)
 # profiling (minimise redundant actions)
 # entitiy I/O representation (html? html based editor?)
 # .js conversion for web-editor
 # -- does js have a faster importer? (builtins)
-# .vmf diff
+# .vmf diff (utilise difflib)
 # -- export to vmf
 # --- two visgroups, one for each map
-# --- only changed brushes
+# --- only diffent solids / entities
 # use } as an indication of a downshift
-# -- some keys are downshifted (e.g. entity connections then origin)
-# -- if you don't downshift you'll misplace your keys
+# -- some key-value pairs are downshifted (e.g. entity: connections {}, origin)
+# -- if you don't downshift you'll misplace your keys -- #
 
 ##VMT_TOOL
 # This almost works with .vmt but headers are occasionally in quotes
@@ -23,7 +26,6 @@
 # Water makes for the most complex .vmt(s) AFAIK
 
 ##QUESTIONS:
-# what should be done before releasing this code publicly
 # can this code be used for .bsp entities
 # -- are bsp entities ever multi-dimensional?
 
@@ -136,11 +138,10 @@ class vmf:
 ##                print("self.dict{}['{}'] = '{}'".format(current_scope, key, value))
                 exec('self.dict{}[key] = value'.format(current_scope))
 
-if __name__ == "__main__":
-##    v = vmf(open('fusion_base.vmf'))
+if __name__ == "__main__":  
     from time import time
     start = time()
-    v = vmf(open('F:/Modding/tf2 maps/koth_campania_dev/koth_campania_af.vmf'))
+    v = vmf(open('test.vmf')) #must contain I/O of some kind
     print('{:.2f}ms'.format((time() - start) * 1000))
 ##    import itertools
 ##    all_solids = v.dict['world']['solids']
