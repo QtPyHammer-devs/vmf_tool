@@ -3,22 +3,32 @@ def yield_dict(x, depth=0):
     for key in keys:
         value = x[key]
         if isinstance(value, dict):
-            yield key, depth
-            for i in deep_yield(value, depth + 1):
+            yield depth, key
+            for i in yield_dict(value, depth + 1):
                 yield i
         else:
-            yield key, (depth, value)
+            yield depth, (key, value)
 
 def yield_all(x, depth=0): #WHAT ABOUT EMPTY DICTS? HEADERS???
     if isinstance(x, dict):
-        yield_dict(x, depth + 1)
+        for y, data in yield_dict(x, depth + 1):
+##            print(y, data)
+            if isinstance(data, tuple):
+                i = data[1]
+                if isinstance(i, dict):
+                    print('*** dict tuple dict')
+                    for j in yield_dict(i, depth + 1):
+                        yield j
+                elif isinstance(i, list):
+                    print('*** dict tuple list')
+                    for j in yield_all(i, depth + 1):
+                        yield j        
     elif isinstance(x, list):
         for i in x:
-            if isinstance(i, list) or isinstance(i, dict):
-                yield yield_all(i, depth + 1)
-            else:
-                yield i, depth
-
+            print('*** list')
+            for j in yield_all(i, depth + 1):
+                yield j
+                
 if __name__ == "__main__":
     dd = {'head':{'body':{'title':'deep dict'}}}
     for depth, data in yield_dict(dd):
@@ -34,5 +44,6 @@ if __name__ == "__main__":
                                 'sides':
                                         [{'id': '3',
                                           'plane': '(X Y Z) (X Y Z) (X Y Z)'}]}]}}
+    print('???')
     for depth, data in yield_all(test):
         print(depth, data)
