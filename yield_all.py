@@ -10,22 +10,25 @@ def yield_dict(x, depth=0):
             yield depth, (key, value)
 
 def yield_all(x, depth=0): #WHAT ABOUT EMPTY DICTS? HEADERS???
+    """recursing nightmare"""
     if isinstance(x, dict):
+        print('x = dict')
         for y, data in yield_dict(x, depth + 1):
 ##            print(y, data)
             if isinstance(data, tuple):
                 i = data[1]
                 if isinstance(i, dict):
-                    print('*** dict tuple dict')
                     for j in yield_dict(i, depth + 1):
                         yield j
                 elif isinstance(i, list):
-                    print('*** dict tuple list')
                     for j in yield_all(i, depth + 1):
-                        yield j        
+                        yield j
+            else:
+                yield depth, data
     elif isinstance(x, list):
+        print('list', x)
         for i in x:
-            print('*** list')
+            print(i)
             for j in yield_all(i, depth + 1):
                 yield j
                 
