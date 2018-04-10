@@ -1,44 +1,38 @@
-def yield_dict(x, depth=0):
-    keys = x.keys()
-    for key in keys:
-        value = x[key]
-        if isinstance(value, dict):
-            yield depth, key
-            for i in yield_dict(value, depth + 1):
-                yield i
-        else:
-            yield depth, (key, value)
+from vmf_tool import singularise
 
-def yield_all(x, depth=0): #WHAT ABOUT EMPTY DICTS? HEADERS???
-    """recursing nightmare"""
-    if isinstance(x, dict):
-        print('x = dict')
-        for y, data in yield_dict(x, depth + 1):
-##            print(y, data)
-            if isinstance(data, tuple):
-                i = data[1]
-                if isinstance(i, dict):
-                    for j in yield_dict(i, depth + 1):
-                        yield j
-                elif isinstance(i, list):
-                    for j in yield_all(i, depth + 1):
-                        yield j
-            else:
-                yield depth, data
-    elif isinstance(x, list):
-        print('list', x)
-        for i in x:
-            print(i)
-            for j in yield_all(i, depth + 1):
-                yield j
-                
+def yield_dict(d, depth=0):
+    keys = d.keys()
+    for key in keys:
+        value = d[key]
+        if isinstance(value, dict):
+            yield '\t' * depth + key + '\n' + '\t' * depth + '{\n'
+            for output in yield_dict(value, depth + 1):
+                yield output
+        elif isinstance(value, list):
+            yield '\t' * depth, singularise(key)
+            for output in yield_list(value, depth + 1):
+                yield output            
+        else:
+            yield '\t' * depth + '"{}" "{}"'.format(key, value)
+    #not to end key value lists
+    yield '\t' * depth + '}\n'
+
+def yield_list(l, depth=0):
+    for item in list:
+        if isinstance(item, dict):
+            yield depth, item
+            for output in yield_dict(item, depth + 1):
+                print("*** dict within list")
+                yield output
+        elif isinstance(item, list):
+            yield depth, singularise(item)
+            for output in yield_list(item, depth + 1):
+                yield output
+
 if __name__ == "__main__":
     dd = {'head':{'body':{'title':'deep dict'}}}
-    for depth, data in yield_dict(dd):
-        if isinstance(data, tuple):
-            print('\t' * depth, '"{}" "{}"'.format(*data), sep='')
-        else:
-            print('\t' * depth, data, sep='')
+    for line in yield_dict(dd):
+        print(line)
             
     test = {'visgroups': {},
           'world': {'id': '1',
@@ -47,6 +41,5 @@ if __name__ == "__main__":
                                 'sides':
                                         [{'id': '3',
                                           'plane': '(X Y Z) (X Y Z) (X Y Z)'}]}]}}
-    print('???')
-    for depth, data in yield_all(test):
-        print(depth, data)
+    for line in yield_dict(test):
+        print(line)
