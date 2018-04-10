@@ -1,0 +1,2 @@
+https://www.youtube.com/watch?v=GpsKrAipXm8  [GDC Talk] Math for Game Programmers: Interaction With 3D Geometry
+  covers planar collision and triangle to plane conversion
