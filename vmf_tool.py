@@ -175,48 +175,20 @@ class vmf:
 if __name__ == "__main__":  
     from time import time
     start = time()
-##    v = vmf(open('test.vmf'))
-##    v = vmf(open('E:/Steam/SteamApps/common/sourcesdk_content/tf/mapsrc/sdk_cp_gravelpit.vmf'))
-    #^ known to have invalid solids
+##    v = vmf(open('test2.vmf'))
+##    v = vmf(open('C:/Steam/SteamApps/common/sourcesdk_content/tf/mapsrc/sdk_cp_gravelpit.vmf')) #known to have invalid solids
     v = vmf(open('F:/Code/python/import_bsp/bsp_import_props.vmf'))
     print(f'{(time() - start) * 1000:.2f}ms')
 
-##    import vector
-##    import itertools
-##    for solid_no, solid in enumerate(v.dict['world']['solids']):
-##        planes = [x['plane'][1:-1].split(') (') for x in solid['sides']]
-##        planes = [[y.split() for y in x] for x in planes]
-##
-##        normals = []
-##        verts = []
-##        for i, plane in enumerate(planes):
-##            plane = [[*map(float, x)] for x in plane]
-##            planes[i] = [*map(vector.vec3, plane)]
-##            A, B, C = map(vector.vec3, plane)
-##            normals.append(((A - B) * (C - B)).normalise())
-##            verts.append(A)
-##            verts.append(B)
-##            verts.append(C)
-##
-##        center = sum(verts, vector.vec3()) / len(verts)
-##
-##        for i, normal in enumerate(normals):
-##            normal2 = (sum(planes[i], vector.vec3()) / 3) - center
-##            dot = vector.dot(normal, normal2)
-##            if dot < 0:
-##                print(solid['sides'][i]['plane'] + f' {dot:.2f}')
-            
-    ## rough VertexBuffer conversion
 ##    import itertools
 ##    all_solids = v.dict['world']['solids']
 ##    all_sides = [x['sides'] for x in all_solids]
 ##    all_sides = list(itertools.chain(*all_sides))
-##    all_tris = [x['plane'] for x in all_sides]
-##    all_tris = [x[1:-1].split(') (') for x in all_tris]
-##    all_tris = [list(map(float, y.split())) for x in all_tris for y in x]
+    # ^ len(all_sides) gives the number of brushsides
 
     #filter(lambda x: x['material'] != 'TOOLS/TOOLSNODRAW' and x['material'] != 'TOOLS/TOOLSSKYBOX', all_sides)
-    #[x['classname'] for x in v.dict['entities']]
+    #set(x['classname'] for x in v.dict['entities']) #lists all entity types in file
+    
 ##    all_ents_with_outputs = list(filter(lambda e: 'connections' in e.keys(), v.dict['entities']))
 ##    all_connections = [e['connections'] for e in all_ents_with_outputs]
     #now add all referenced targetnames to list
