@@ -1,0 +1,26 @@
+vmf_tool_curly should:
+  ignore comments (//)
+  count curlybrackets ({)
+  and use them for scope adjustment
+
+line before { is new scope name
+  store previous line?
+
+isolate invalid solids:
+ sdk_gravelpit
+ diff against invalid solids removed ver
+
+external light placement and previews
+ -- sfm (import dmx, and translate lights to entities)
+ -- blender (what export format? fbx?)
+
+tf2 .dem to sfm .dem (demo to video)
+ -- demoprotocol & network protocol are diferent
+ -- record in sfm, see if it'll play (map change may cause errors)
+ -- dmx to fbx? (import anim & scene to blender)
+
+create a test exec file
+ -- record; wait 20; +forward etc.
+ -- compare both demos
+ -- packets to instructions
+ -- convert to timeline & keyframes

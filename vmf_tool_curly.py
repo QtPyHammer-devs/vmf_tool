@@ -175,10 +175,10 @@ class vmf:
 if __name__ == "__main__":  
     from time import time
     start = time()
-    v = vmf(open('test.vmf'))
+##    v = vmf(open('test.vmf'))
 ##    v = vmf(open('E:/Steam/SteamApps/common/sourcesdk_content/tf/mapsrc/sdk_cp_gravelpit.vmf'))
     #^ known to have invalid solids
-##    v = vmf(open('F:/Code/python/import_bsp/bsp_import_props.vmf'))
+    v = vmf(open('F:/Code/python/import_bsp/bsp_import_props.vmf'))
     print(f'{(time() - start) * 1000:.2f}ms')
 
 ##    import vector
@@ -211,7 +211,6 @@ if __name__ == "__main__":
 ##    all_solids = v.dict['world']['solids']
 ##    all_sides = [x['sides'] for x in all_solids]
 ##    all_sides = list(itertools.chain(*all_sides))
-    #^ len(all_sides) counts all sides
 ##    all_tris = [x['plane'] for x in all_sides]
 ##    all_tris = [x[1:-1].split(') (') for x in all_tris]
 ##    all_tris = [list(map(float, y.split())) for x in all_tris for y in x]

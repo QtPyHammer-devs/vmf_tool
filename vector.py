@@ -388,41 +388,19 @@ def rotate_by_normal(point, normal):
 def angle_between(a, b):
     dot(a, b) / (a.magnitude() * b.magnitude())
 
-def CW_sort(vectors):
-    vectors = list(map(vec3, vectors))
-    center = sum(vectors, vec3()) / len(vectors)
-    o = vectors[0] - center
-    o_mag = o.magnitude()
+def CW_sort(vectors, normal):
+    """vec3 only, for vec2 use a normal of (0, 0, 1)"""
+    O = sum(vectors, vec3()) / len(vectors)
+    centered_vectors = [v - O for v in vectors]
+    A = centered_vectors[0]
+    indexed_thetas = {dot(A * B, normal): vectors[i+1] for i, B in enumerate(vectors[1:])}
     sorted_vectors = [vectors[0]]
-    sorted_vectors += sorted(vectors[1:], key = lambda v: dot(o, v) / (o_mag * v.magnitude()))
+    sorted_vectors += [indexed_thetas[key] for key in sorted(indexed_thetas)]
     return sorted_vectors
 
 def CCW_sort(vectors):
     return list(reversed(CW_sort(vectors)))
 
 if __name__ == "__main__": #move final unittests elsewhere
-    import random
-    results = []
-    rand_bigint = lambda: random.randrange(-2**32, 2**32)
-    for i in range(1024):
-        a = vec2(rand_bigint(), rand_bigint())
-        b = vec2(rand_bigint(), rand_bigint())
-        if dot(a, b) == dot2(a, b):
-            results.append('.')
-        else:
-            results.append('!')
-    print('vec2 dot vs dot2:', ''.join(results), sep='\n')
-    results = []
-    for i in range(1024):
-        a = vec3(rand_bigint(), rand_bigint(), rand_bigint())
-        b = vec3(rand_bigint(), rand_bigint(), rand_bigint())
-        if dot(a, b) == dot2(a, b):
-            results.append('.')
-        else:
-            results.append('!')
-    print('vec3 dot vs dot2:', ''.join(results), sep='\n')
-
-    #test difference in accuracy
-    rand_bigfloat = lambda x: random.randrange(-2**32, 2**32, 2**-32)
-    
+    print(CW_sort([vec3(0, 0, 0), vec3(0, 1, 0), vec3(1, 0, 0), vec3(1, 1, 0)], vec3(0, 0, 1)))
     pass
