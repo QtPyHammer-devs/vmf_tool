@@ -28,7 +28,7 @@ class vec2:
             other = vec2(other)
         except:
             raise TypeError("unsupported operand type(s) for +: 'vec2' and '" + other.__class__.__name__ + "'")
-        return vec2(self.x + other.x, self.y + other.y)
+        return vec2(*map(math.fsum, zip(self, other)))
         
     def __eq__(self, other):
         if isinstance(other, vec2):
@@ -75,7 +75,7 @@ class vec2:
             other = vec2(other)
         except:
             raise TypeError("unsupported operand type(s) for -: 'vec2' and '" + other.__class__.__name__ + "'")
-        return vec2(self.x - other.x, self.y - other.y)
+        return vec2(*map(math.fsum, zip(self, -other)))
         
     def __truediv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
@@ -86,18 +86,27 @@ class vec2:
 
     def magnitude(self):
         """Length of vector"""
-        return math.sqrt(self.x**2 + self.y**2)
+        return math.sqrt(self.sqrmagnitude())
 
     def normalise(self):
         """Normalises (mutates) and returns the vector"""
         m = self.magnitude()
         if m != 0:
-            self.x, self.y = self.x/m, self.y/m
-        return self
+            return vec2(self.x/m, self.y/m)
+        else:
+            return self
+
+    def rotate(self, degrees):
+        theta = math.radians(degrees)
+        cos_theta = math.cos(theta)
+        sin_theta = math.sin(theta)
+        x = round(math.fsum([self[0] * cos_theta, self[1] * sin_theta]), 6)
+        y = round(math.fsum([self[1] * cos_theta, -self[0] * sin_theta]), 6)
+        return vec2(x, y)
 
     def sqrmagnitude(self):
         """Magnitude without sqrt. For quick comparisions"""
-        return self.x**2 + self.y**2
+        return math.fsum([pow(i, 2) for i in self])
 
 
 class vec3:
@@ -118,10 +127,7 @@ class vec3:
             other = vec3(other)
         except:
             raise TypeError("unsupported operand type(s) for +: 'vec3' and '"  + other.__class__.__name__ + "'")
-        x = math.fsum([self.x, other.x])
-        y = math.fsum([self.y, other.y])
-        z = math.fsum([self.z, other.z])
-        return vec3(x, y, z)
+        return vec3(*map(math.fsum, zip(self, other)))
 
     def __eq__(self, other):
         if isinstance(other, vec3):
@@ -156,10 +162,9 @@ class vec3:
                 other = vec3(other)
             except:
                 raise TypeError("unsupported operand type(s) for *: 'vec3' and '"  + other.__class__.__name__ + "'")
-            x = math.fsum([self.y * other.z, -self.z * other.y])
-            y = math.fsum([self.z * other.x, -self.x * other.z])
-            z = math.fsum([self.x * other.y, -self.y * other.x])
-            return vec3(x, y, z)
+            return vec3(math.fsum([self.y * other.z, -self.z * other.y]),
+                        math.fsum([self.z * other.x, -self.x * other.z]),
+                        math.fsum([self.x * other.y, -self.y * other.x]))
         
     def __neg__(self):
         return vec3(-self.x, -self.y, -self.z)
@@ -168,19 +173,14 @@ class vec3:
         return str([self.x, self.y, self.z])
 
     def __rmul__(self, other):
-        try:
-            vec3(other)
-        except TypeError:
-            raise TypeError("unsupported operand type(s) for *: 'vec3' and '"  + other.__class__.__name__ + "'")
-        finally:
-            return self.__mul__(other)
+        return self.__mul__(other)
 
     def __sub__(self, other):
         try:
             other = vec3(other)
         except:
             raise TypeError("unsupported operand type(s) for -: 'vec3' and '"  + other.__class__.__name__ + "'")
-        return vec3(self.x - other.x, self.y - other.y, self.z - other.z)
+        return vec3(*map(math.fsum, zip(self, -other)))
 
     def __truediv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
@@ -190,17 +190,38 @@ class vec3:
         raise TypeError("unsupported operand type(s) for /: 'vec3' and '"  + other.__class__.__name__ + "'")
 
     def magnitude(self):
-        return math.sqrt(self.x**2 + self.y**2 + self.z**2)
+        return math.sqrt(self.sqrmagnitude())
 
     def normalise(self):
         m = self.magnitude()
         if m != 0:
-            self.x, self.y, self.z = self.x/m, self.y/m, self.z/m
-        return self
+            return vec3(self.x/m, self.y/m, self.z/m)
+        else:
+            return self
+
+    def rotate(self, *degrees):
+        """Degrees must be an iterable with at least 3 items"""
+        angles = [*map(math.radians, degrees)]
+        cos_x, sin_x = math.cos(angles[0]), math.sin(angles[0])
+        cos_y, sin_y = math.cos(angles[1]), math.sin(angles[1])
+        cos_z, sin_z = math.cos(angles[2]), math.sin(angles[2])
+        out = vec3(self[0],
+                   math.fsum([self[1] * cos_x, -self[2] * sin_x]),
+                   math.fsum([self[1] * sin_x, self[2] * cos_x]))
+        out = vec3(math.fsum([out.x * cos_y, out.z * sin_y]),
+                   out.y,
+                   math.fsum([out.z * cos_y, out.x * sin_y]))
+        out = vec3(math.fsum([out.x * cos_z, -out.y * sin_z]),
+                   math.fsum([out.x * sin_z, out.y * cos_z]),
+                   out.z)
+        out.x = round(out.x, 6)
+        out.y = round(out.y, 6)
+        out.z = round(out.z, 6)
+        return out
 
     def sqrmagnitude(self):
-        """faster magnitude without sqrt()"""
-        return self.x**2 + self.y**2 + self.z**2
+        """for fast compares where the actual length isn't needed"""
+        return math.fsum([pow(i, 2) for i in self])
 
 
 class vec4:
@@ -301,77 +322,51 @@ class vec4:
 
     def sqrmagnitude(self):
         """magnitude without sqrt()"""
-        return math.fsum([self.w**2, self.x**2, self.y**2, self.z**2])
+        return math.fsum([pow(i, 2) for i in self])
+
 
 def dot(a, b):
     """Returns the dot product of two vectors"""
-    if isinstance(a, vec2) and isinstance(b, vec2):
-        return math.fsum([a.x * b.x, a.y * b.y])
-    elif isinstance(a, vec3) and isinstance(b, vec3):
-        return math.fsum([a.x * b.x, a.y * b.y, a.z * b.z])
-    elif isinstance(a, vec4) and isinstance(b, vec4):
-        return math.fsum([a.w * b.w, a.x * b.x, a.y * b.y, a.z * b.z])
+    if len(a) == len(b):
+        return math.fsum([i * j for i, j in zip(a, b)])
+    #itertools.zip_longest instead of repeating the solution?
     elif isinstance(a, vec4) and isinstance(b, vec3):
         return math.fsum([a.x * b.x, a.y * b.y, a.z * b.z, a.w])
     elif isinstance(a, vec3) and isinstance(b, vec4):
         return math.fsum([a.x * b.x, a.y * b.y, a.z * b.z, b.w])
     else:
-        raise TypeError(' '.join(['Cannot calculate', a.__class__.__name__, '&', b.__class__.__name__, 'dot product!']))
+        raise TypeError(''.join(('Types cannot be dotted. a: ', a.__class__.__name__, ' b: ', b.__class__.__name__)))
 
-def dot2(a, b):
-    dot_parts = []
-    for i, j in zip(a, b):
-        dot_parts.append(i * j)
-    return math.fsum(dot_parts)
 
 def lerp(a, b, t):
     """Interpolates between two given points by t"""
-    if isinstance(a, int) or isinstance(a, float) and isinstance(b, int) or isinstance(b, float):
-        return math.fsum([a, t * math.fsum([b, -a])])
-    elif type(a) == type(b) and (isinstance(a, vec2) or isinstance(a, vec3) or isinstance(a, vec4)):
-        return a + t * (b - a)
+    if type(a) == type(b) or isinstance(a, int) and isinstance(b, float) or isinstance(a, float) and isinstance(b, int):
+        return math.fsum(a, t * math.fsum(b, -a))
     else:
-        raise TypeError(' '.join(['Cannot lerp', a.__class__.__name__, '&', b.__class__.__name__ + '!']))
+        raise TypeError('Types do not match. a: ' + str(type(a)) + ' b:' + str(type(b)))
 
 
-def slerp(a, b, t):
+def slerp(a, b, t):#hard to read
     """Interpolates between two quaternions by t"""
+    a = vec4(a)
+    b = vec4(b)
     a.normalize()
     b.normalize()
     vdot = dot(a, b)
-    if vdot > 0.9995: #fp accuracy magic
+    if vdot > 0.9995:
         return lerp(a, b, t)
     if vdot < 0.0:
         a = -a
         vdot = -vdot
-    theta_0 = math.acos(math.fmod(1, vdot))   #angle between quaternions
-    theta = theta_0 * t         #first vector and result angle
+    1 % vdot                    #clamp to range of acos() [-1, 1]
+    theta_0 = math.acos(vdot)   #theta_0 = angle between v1 & v2
+    theta = theta_0 * t         #theta = angle between v1 and result
     c = (b - a * vdot).normalise()
     return a * math.cos(theta) + c * math.sin(theta)
 
 
-def rotate(vector, angles):
-    """Angles are expected to be in degrees."""
-    angles = vec3(math.radians(angles[0]), math.radians(angles[1]), math.radians(angles[2]))
-    cos_x, sin_x = math.cos(angles[0]), math.sin(angles[0])
-    cos_y, sin_y = math.cos(angles[1]), math.sin(angles[1])
-    cos_z, sin_z = math.cos(angles[2]), math.sin(angles[2])
-    vector = vec3(vector[0],
-                  math.fsum([vector[1] * cos_x, -vector[2] * sin_x]),
-                  math.fsum([vector[1] * sin_x, vector[2] * cos_x]))
-    vector = vec3(math.fsum([vector[0] * cos_y, vector[2] * sin_y]),
-                  vector[1],
-                  math.fsum([vector[2] * cos_y, -vector[0] * sin_y]))
-    vector = vec3(math.fsum([vector[0] * cos_z, -vector[1] * sin_z]),
-                  math.fsum([vector[0] * sin_z, vector[1] * cos_z]),
-                  vector[2])
-    return vector
-
-
 def rotate_vector_by_quaternion(vector, quaternion): #DODGY
     """Expects angle in degrees"""
-    vector = vec3(vector)
-    quaternion = vec4(quaternion)
     q = vec3(quaternion.x, quaternion.y, quaternion.z)
     theta = math.radians(quaternion.w)
     result = 2 * dot(q, vector) * q
@@ -380,27 +375,9 @@ def rotate_vector_by_quaternion(vector, quaternion): #DODGY
     return result
 
 
-def rotate_by_normal(point, normal):
-    point = vec3(point)
-    vector = vec3(vector)
-    pass
+def rotate_to_normal(point, normal, start=vec3(0, 0, 1)):
+    raise NotImplementedError
 
-def angle_between(a, b):
-    dot(a, b) / (a.magnitude() * b.magnitude())
 
-def CW_sort(vectors, normal):
-    """vec3 only, for vec2 use a normal of (0, 0, 1)"""
-    O = sum(vectors, vec3()) / len(vectors)
-    centered_vectors = [v - O for v in vectors]
-    A = centered_vectors[0]
-    indexed_thetas = {dot(A * B, normal): vectors[i+1] for i, B in enumerate(vectors[1:])}
-    sorted_vectors = [vectors[0]]
-    sorted_vectors += [indexed_thetas[key] for key in sorted(indexed_thetas)]
-    return sorted_vectors
-
-def CCW_sort(vectors):
-    return list(reversed(CW_sort(vectors)))
-
-if __name__ == "__main__": #move final unittests elsewhere
-    print(CW_sort([vec3(0, 0, 0), vec3(0, 1, 0), vec3(1, 0, 0), vec3(1, 1, 0)], vec3(0, 0, 1)))
+if __name__ == "__main__":
     pass
