@@ -39,7 +39,7 @@ class freecam:
         local_move.x = ((SDLK_d in keys) - (SDLK_a in keys))
         local_move.y = ((SDLK_w in keys) - (SDLK_s in keys))
         local_move.z = ((SDLK_q in keys) - (SDLK_e in keys))
-        global_move = rotate(local_move, -self.rotation)
+        global_move = local_move.rotate(*-self.rotation)
         self.position += global_move * self.speed * dt
 
     def set(self):
