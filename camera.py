@@ -19,7 +19,7 @@ import math
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from sdl2 import *
-from vector import vec2, vec3, rotate
+from vector import vec2, vec3
 
 sensitivity = 0.25
 
