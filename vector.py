@@ -39,6 +39,9 @@ class vec2:
                 return True
         return False
 
+    def __format__(self, format_spec=''):
+        return ' '.join([format(i, format_spec) for i in self])
+    
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec2(self.x // other, self.y // other)
@@ -138,6 +141,9 @@ class vec3:
                 return True
         return False
 
+    def __format__(self, format_spec=''):
+        return ' '.join([format(i, format_spec) for i in self])
+    
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec3(self.x // other, self.y // other, self.z // other)
@@ -261,6 +267,9 @@ class vec4:
                 return True
         return False
 
+    def __format__(self, format_spec=''):
+        return ' '.join([format(i, format_spec) for i in self])
+    
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec4(self.w // other, self.x // other, self.y // other, self.z // other)
