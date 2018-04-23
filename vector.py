@@ -29,7 +29,7 @@ class vec2:
         except:
             raise TypeError("unsupported operand type(s) for +: 'vec2' and '" + other.__class__.__name__ + "'")
         return vec2(*map(math.fsum, zip(self, other)))
-        
+
     def __eq__(self, other):
         if isinstance(other, vec2):
             if [self.x, self.y] == [other.x, other.y]:
@@ -41,7 +41,7 @@ class vec2:
 
     def __format__(self, format_spec=''):
         return ' '.join([format(i, format_spec) for i in self])
-    
+
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec2(self.x // other, self.y // other)
@@ -79,7 +79,7 @@ class vec2:
         except:
             raise TypeError("unsupported operand type(s) for -: 'vec2' and '" + other.__class__.__name__ + "'")
         return vec2(*map(math.fsum, zip(self, -other)))
-        
+
     def __truediv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec2(self.x / other, self.y / other)
@@ -143,7 +143,7 @@ class vec3:
 
     def __format__(self, format_spec=''):
         return ' '.join([format(i, format_spec) for i in self])
-    
+
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec3(self.x // other, self.y // other, self.z // other)
@@ -171,7 +171,7 @@ class vec3:
             return vec3(math.fsum([self.y * other.z, -self.z * other.y]),
                         math.fsum([self.z * other.x, -self.x * other.z]),
                         math.fsum([self.x * other.y, -self.y * other.x]))
-        
+
     def __neg__(self):
         return vec3(-self.x, -self.y, -self.z)
 
@@ -257,7 +257,7 @@ class vec4:
         except:
             raise TypeError("unsupported operand type(s) for +: 'vec4' and '"  + other.__class__.__name__ + "'")
         return vec4(self.w + other.w, self.x + other.x, self.y + other.y, self.z + other.z)
-        
+
     def __eq__(self, other):
         if isinstance(other, vec4):
             if [self.w, self.x, self.y, self.z] == [other.w, other.x, other.y, other.z]:
@@ -269,7 +269,7 @@ class vec4:
 
     def __format__(self, format_spec=''):
         return ' '.join([format(i, format_spec) for i in self])
-    
+
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec4(self.w // other, self.x // other, self.y // other, self.z // other)
@@ -297,7 +297,7 @@ class vec4:
         raise TypeError("unsupported operand type(s) for *: 'vec4' and '" + other.__class__.__name__ + "'")
 
     def __neg__(self):#not legit
-        return vec4(-self.w, self.x, self.y, self.z) 
+        return vec4(-self.w, self.x, self.y, self.z)
 
     def __repr__(self):
         return str([self.w, self.x, self.y, self.z])
@@ -346,14 +346,12 @@ def dot(a, b):
     else:
         raise TypeError(''.join(('Types cannot be dotted. a: ', a.__class__.__name__, ' b: ', b.__class__.__name__)))
 
-
 def lerp(a, b, t):
     """Interpolates between two given points by t"""
     if type(a) == type(b) or isinstance(a, int) and isinstance(b, float) or isinstance(a, float) and isinstance(b, int):
         return math.fsum(a, t * math.fsum(b, -a))
     else:
         raise TypeError('Types do not match. a: ' + str(type(a)) + ' b:' + str(type(b)))
-
 
 def slerp(a, b, t):#hard to read
     """Interpolates between two quaternions by t"""
@@ -373,7 +371,6 @@ def slerp(a, b, t):#hard to read
     c = (b - a * vdot).normalise()
     return a * math.cos(theta) + c * math.sin(theta)
 
-
 def rotate_vector_by_quaternion(vector, quaternion): #DODGY
     """Expects angle in degrees"""
     q = vec3(quaternion.x, quaternion.y, quaternion.z)
@@ -383,10 +380,24 @@ def rotate_vector_by_quaternion(vector, quaternion): #DODGY
     result += 2 * theta * q * vector
     return result
 
-
 def rotate_to_normal(point, normal, start=vec3(0, 0, 1)):
     raise NotImplementedError
 
+def angle_between(a, b):
+    dot(a, b) / (a.magnitude() * b.magnitude())
+
+def CW_sort(vectors, normal):
+    """vec3 only, for vec2 use a normal of (0, 0, 1)"""
+    O = sum(vectors, vec3()) / len(vectors)
+    centered_vectors = [v - O for v in vectors]
+    A = centered_vectors[0]
+    indexed_thetas = {dot(A * B, normal): vectors[i+1] for i, B in enumerate(vectors[1:])}
+    sorted_vectors = [vectors[0]]
+    sorted_vectors += [indexed_thetas[key] for key in sorted(indexed_thetas)]
+    return sorted_vectors
+
+def CCW_sort(vectors):
+    return list(reversed(CW_sort(vectors)))
 
 if __name__ == "__main__":
     pass

@@ -1,12 +1,74 @@
-﻿import ctypes
-from OpenGL.GL import *
-from OpenGL.GLU import *
-from sdl2 import *
-import time
+#TODO: export to obj (one object per solid)
+#TODO: obj import (each object is a solid)
+
+﻿import camera
+import ctypes
+import enum
 import itertools
-import vmf_tool
-import camera
+from OpenGL.GL import * #Installed via pip (PyOpenGl 3.1.0)
+from OpenGL.GLU import * #PyOpenGL-accelerate 3.1.0 requires specific MSVC builds for Cython
+#get precompiled binaries if you can, it's much less work
+#for vertex buffers Numpy is also needed (available through pip)
+from sdl2 import * #Instaleld via pip (PySDL2 0.9.5)
+#requires SDL2.dll (steam has one in it's main directory) & a specific Environment Variable Pointing to it's location
+import time
 import vector
+import vmf_tool
+
+class pivot(enum.Enum):
+    """like blender pivot point"""
+    median = 0
+    active = 1
+    cursor = 2
+    individual = 3
+
+class solid:
+    def __init__(self, source):
+        if isinstance(source, string):
+            source = vmf_tool.vmf(source).dict
+        if isinstance(source, dict):
+            #use as many keyvalues as posible
+            self.dict = source #retained for accuracy / debug
+            self.planes = []
+            for side in source['sides']:
+                ...
+                self.planes.append(...)
+            self.vertices = [...]
+            self.center = sum(self.vertices, vector.vec3) / len(self.vertices)
+            self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
+        else:
+            raise RuntimeError('Bad Source')
+
+    def check_convexity(self):
+        """take all faces and ensure their verts lie on shared planes"""
+        #ideally split if not convex
+        #can be very expensive to correct
+        #just recalc planes
+        #if any verts not on correct planes, throw warning
+        ...
+
+    def export(self):
+        """returns a dict resembling an imported solid"""
+        #foreach face
+        #  solid['sides'].append({})
+        #  solid['sides'][-1]['plane'] = '({v1}) ({v2}) ({v3})'
+        ...
+
+    def rotate(self, pivot_point=pivot.median):
+        #foreach plane
+        #  rotate normal
+        #  recalculate distance
+        #foreach vertex
+        #  translate -(self.center - origin)
+        #  rotate
+        #  translate back
+        ...
+
+    def flip(self, axis):
+        """axis is a vector"""
+        #flip along axis
+        #maintain outward facing plane normals
+        ...
 
 def extract_str_plane(string):
     points = string[1:-1].split(') (')
@@ -68,6 +130,13 @@ def main(width, height):
         #calculate each triple once
         # -- to check for duplicates: all([i in b for i in a])
         intersections = []
+        #some plane's intersections are prevented by other intersections
+        #do two full passes per solid
+        #foreach plane
+        #  if one of the intersecting plane intersects 2 others intersecting the initial plane
+        #  and there are more than 2 interscting planes (not a triangle)
+        #    remove this plane from intersections
+        #IS THERE A MORE EFFICIENT SINGLE-PASS METHOD?
         others = dict(intersects)
         for i in intersects.keys():
             others.pop(i)
@@ -104,7 +173,7 @@ def main(width, height):
             fan = loop_to_fan(loop)
             all_tris += fan
             all_solid_polys[-1].append(fan)
-        
+
         #these are added to a vertexbuffer
         #their indexes are associated with each face
         #these indexes are then sorted clockwise relative to each faces normal
@@ -112,10 +181,10 @@ def main(width, height):
 
         #this is something vbsp.exe does, it just also splits the faces afterwards
         #do t-juncts affect origfaces?
-        
+
         #if uvs are included in the vertex specification
         #then indexing only prevents calcuating intersections more than once
-            
+
 ##    all_sides = [x['sides'] for x in all_solids]
 ##    all_sides = list(itertools.chain(*all_sides))
 ##    all_sides = list(filter(lambda x: x['material'] is not 'TOOLS/TOOLSNODRAW', all_sides))
@@ -128,7 +197,7 @@ def main(width, height):
     print('import took {:.2f} seconds'.format(time.time() - start_import))
 
     CAMERA = camera.freecam(None, None, 128)
-    
+
     SDL_SetRelativeMouseMode(SDL_TRUE)
     SDL_CaptureMouse(SDL_TRUE)
 
@@ -162,7 +231,7 @@ def main(width, height):
             CAMERA.update(mousepos, keys, 1 / tickrate)
             dt -= 1 / tickrate
             old_time = time.time()
-        
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glPushMatrix()
         CAMERA.set()
