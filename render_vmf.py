@@ -1,7 +1,7 @@
 #TODO: export to obj (one object per solid)
 #TODO: obj import (each object is a solid)
 
-﻿import camera
+import camera
 import ctypes
 import enum
 import itertools
@@ -229,6 +229,7 @@ def main(width, height):
         dt = time.time() - old_time
         while dt >= 1 / tickrate:
             CAMERA.update(mousepos, keys, 1 / tickrate)
+            #ray trace, collide against solid bounding boxes
             dt -= 1 / tickrate
             old_time = time.time()
 
