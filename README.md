@@ -13,5 +13,6 @@ Takes a very python specific approach: context specific code is written for ever
 Planned Features
  - [x] export back to vmf
  - [ ] displacement vector rotation (for instance collaspsing, unless VMFII already handles this)
- - [ ] solid planes to full faces (plane collision)
+ - [x] solid planes to full faces (almost!)
  - [ ] invalid solid recovery (what defines an invalid solid? inward facing planes?)
+ - [ ] 2-way obj conversion
