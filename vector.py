@@ -349,7 +349,7 @@ def dot(a, b):
 def lerp(a, b, t):
     """Interpolates between two given points by t"""
     if type(a) == type(b) or isinstance(a, int) and isinstance(b, float) or isinstance(a, float) and isinstance(b, int):
-        return math.fsum(a, t * math.fsum(b, -a))
+        return math.fsum([a, t * math.fsum(b, -a)])
     else:
         raise TypeError('Types do not match. a: ' + str(type(a)) + ' b:' + str(type(b)))
 
