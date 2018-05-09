@@ -9,8 +9,9 @@ from OpenGL.GL import * #Installed via pip (PyOpenGl 3.1.0)
 from OpenGL.GLU import * #PyOpenGL-accelerate 3.1.0 requires specific MSVC builds for Cython
 #get precompiled binaries if you can, it's much less work
 #for vertex buffers Numpy is also needed (available through pip)
-from sdl2 import * #Instaleld via pip (PySDL2 0.9.5)
-#requires SDL2.dll (steam has one in it's main directory) & a specific Environment Variable Pointing to it's location
+import physics
+from sdl2 import * #Installed via pip (PySDL2 0.9.5)
+#requires SDL2.dll (steam has one in it's main directory) & an Environment Variable holding it's location
 import time
 import vector
 import vmf_tool
@@ -24,27 +25,91 @@ class pivot(enum.Enum):
 
 class solid:
     def __init__(self, source):
+        """expects a dictionary, strings are also acceptable"""
         if isinstance(source, string):
             source = vmf_tool.vmf(source).dict
         if isinstance(source, dict):
-            #use as many keyvalues as posible
+            #use/store as many keyvalues as posible
             self.dict = source #retained for accuracy / debug
+            self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
             self.planes = []
-            for side in source['sides']:
-                ...
-                self.planes.append(...)
-            self.vertices = [...]
+            self.vertices = []
+            ### wait how does this work again? ###
+            # for side in source['sides']:
+            #     self.planes.append(extract_str_plane(side['plane']))
+            # planes = itertools.chain([s['plane'] for s in source['sides']])
+            # planes = [*map(extract_str_plane, planes)]
+            intersects = {}
+            #stores planes & their indices
+            unchecked_planes = {i: plane for i, plane in enumerate(planes)}
+            for i, a_plane in enumerate(self.planes):
+                intersects[i] = []
+                unchecked_planes.pop(i)
+                for j, b_plane in unchecked_planes.items():
+                    if vector.dot(a_plane[0], b_plane[0]) >= 0:
+                        intersects[i].append(j)
+                for key in intersects.keys():
+                    if i in intersects[key]:
+                        intersects[i].append(key)
+
+            intersections = []
+            others = dict(intersects)
+            for i in intersects.keys():
+                others.pop(i)
+                other_others = dict(others)
+                for j in others.keys():
+                    if j in intersects[i]:
+                        other_others.pop(j)
+                        for k in other_others:
+                            if k in intersects[i] and k in intersects[j]:
+                                intersections.append([i, j, k])
+
+            face_points = {i: [] for i, p in enumerate(self.planes)}
+            for i, j, k in intersections:
+                p0 = planes[i]
+                p1 = planes[j]
+                p2 = planes[k]
+                p0 = p0[0] * p0[1]
+                p1 = p1[0] * p1[1]
+                p2 = p2[0] * p2[1]
+                X = p0.x + p1.x + p2.x
+                Y = p0.y + p1.y + p2.y
+                Z = p0.z + p1.z + p2.z
+                V = vector.vec3(X, Y, Z)
+                #check if each one is above another plane in the solid
+                face_points[i].append(V)
+                face_points[j].append(V)
+                face_points[k].append(V)
+
+            for plane_index, points in face_points.items():
+                loop = vector.CW_sort(points, planes[plane_index][0])
+                #z axis are inverted?
+                #everything is inverted?
+                #CW_sort may need center to be plane aligned
+                face_points[key] = loop
+                fan = loop_to_fan(loop)
+                all_tris += fan
+                all_solid_polys[-1].append(fan)
+
+            all_x = [v.x for v in self.vertices]
+            all_y = [v.y for v in self.vertices]
+            all_z = [v.z for v in self.vertices]
+            min_x, max_x = min(all_x), max(all_x)
+            min_y, max_y = min(all_y), max(all_y)
+            min_z, max_z = min(all_z), max(all_z)
+            self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
             self.center = sum(self.vertices, vector.vec3) / len(self.vertices)
             self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
         else:
-            raise RuntimeError('Bad Source')
+            raise RuntimeError(f'Tried to create solid from invalid type: {type(source)}')
 
-    def check_convexity(self):
+    def make_valid(self):
         """take all faces and ensure their verts lie on shared planes"""
         #ideally split if not convex
         #can be very expensive to correct
         #just recalc planes
         #if any verts not on correct planes, throw warning
+        #check if solid is open
         ...
 
     def export(self):
@@ -64,10 +129,19 @@ class solid:
         #  translate back
         ...
 
-    def flip(self, axis):
+    def flip(self, center, axis):
         """axis is a vector"""
         #flip along axis
         #maintain outward facing plane normals
+        #invert all plane normals along axis, flip along axis
+        ...
+
+    def translate(self, offset):
+        """offset is a vector"""
+        #for plane in self.planes
+        #    plane.distance += dot(plane.normal, offset)
+        #for vertex in self.vertices
+        #    vertex += offset
         ...
 
 def extract_str_plane(string):
@@ -126,17 +200,16 @@ def main(width, height):
                 if i in intersects[key]:
                     intersects[i].append(key)
 
-        #now find all mutual triples & their intersecting points
-        #calculate each triple once
-        # -- to check for duplicates: all([i in b for i in a])
-        intersections = []
         #some plane's intersections are prevented by other intersections
         #do two full passes per solid
+        # for i, a_plane in intersects.keys():
+            # ...
         #foreach plane
         #  if one of the intersecting plane intersects 2 others intersecting the initial plane
         #  and there are more than 2 interscting planes (not a triangle)
         #    remove this plane from intersections
         #IS THERE A MORE EFFICIENT SINGLE-PASS METHOD?
+        intersections = []
         others = dict(intersects)
         for i in intersects.keys():
             others.pop(i)
@@ -183,20 +256,12 @@ def main(width, height):
         #do t-juncts affect origfaces?
 
         #if uvs are included in the vertex specification
-        #then indexing only prevents calcuating intersections more than once
-
-##    all_sides = [x['sides'] for x in all_solids]
-##    all_sides = list(itertools.chain(*all_sides))
-##    all_sides = list(filter(lambda x: x['material'] is not 'TOOLS/TOOLSNODRAW', all_sides))
-##    all_tris = [x['plane'] for x in all_sides]
-##    all_tris = [x[1:-1].split(') (') for x in all_tris]
-##    all_tris = [list(map(float, y.split())) for x in all_tris for y in x]
-##    print(all_sides[0])
-##    all_colours = [x['color'] for x in all_solids]
-##    all_colours = [int(y) / 255 for x in all_colours for y in x]
+        #then indexes save nothing between face_points
+        #BUILD TO BE MUTABLE
     print('import took {:.2f} seconds'.format(time.time() - start_import))
 
     CAMERA = camera.freecam(None, None, 128)
+    rendered_ray = []
 
     SDL_SetRelativeMouseMode(SDL_TRUE)
     SDL_CaptureMouse(SDL_TRUE)
@@ -220,6 +285,11 @@ def main(width, height):
             if event.type == SDL_KEYUP:
                 while event.key.keysym.sym in keys:
                     keys.remove(event.key.keysym.sym)
+            if event.type == SDL_MOUSEBUTTONDOWN:
+                keys.append(event.button.button)
+            if event.type == SDL_MOUSEBUTTONUP:
+                while event.button.button in keys:
+                    keys.remove(event.button.button)
             if event.type == SDL_MOUSEMOTION:
                 mousepos += vector.vec2(event.motion.xrel, event.motion.yrel)
                 SDL_WarpMouseInWindow(window, width // 2, height // 2)
@@ -229,18 +299,21 @@ def main(width, height):
         dt = time.time() - old_time
         while dt >= 1 / tickrate:
             CAMERA.update(mousepos, keys, 1 / tickrate)
-            #ray trace, collide against solid bounding boxes
+            if SDLK_r in keys:
+                CAMERA = camera.freecam(None, None, 128)
+            if SDL_BUTTON_LEFT in keys:
+                ray_start = CAMERA.position
+                ray_dir = vector.vec3(0, 1, 0).rotate(*-CAMERA.rotation)
+                rendered_ray = [ray_start, ray_start + (ray_dir * 4096)]
+                #calculate collisions
             dt -= 1 / tickrate
             old_time = time.time()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glPushMatrix()
         CAMERA.set()
+
         glColor(1, 1, 1)
-##        glBegin(GL_TRIANGLES)
-##        for vertex in all_tris:
-##            glVertex(*vertex)
-##        glEnd()
         for solid in all_solid_polys:
             glColor(*solid[0])
             for loop in solid[1:]:
@@ -248,6 +321,7 @@ def main(width, height):
                 for vertex in loop:
                     glVertex(*vertex)
                 glEnd()
+
         glDisable(GL_DEPTH_TEST)
         glBegin(GL_LINES)
         glColor(1, 0, 0)
@@ -260,6 +334,13 @@ def main(width, height):
         glVertex(0, 0, 0)
         glVertex(0, 0, 128)
         glEnd()
+
+        glColor(1, .25, 0)
+        glBegin(GL_LINES)
+        for point in rendered_ray:
+            glVertex(*point)
+        glEnd()
+
         glEnable(GL_DEPTH_TEST)
         glPopMatrix()
         SDL_GL_SwapWindow(window)
@@ -277,3 +358,4 @@ if __name__ == '__main__':
             elif key == '-h':
                 height = int(value)
     main(width, height)
+

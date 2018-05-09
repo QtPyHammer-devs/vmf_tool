@@ -27,7 +27,7 @@ class vec2:
         try:
             other = vec2(other)
         except:
-            raise TypeError("unsupported operand type(s) for +: 'vec2' and '" + other.__class__.__name__ + "'")
+            raise TypeError(f"unsupported operand type(s) for +: 'vec2' and ''{other.__class__.__name__}'")
         return vec2(*map(math.fsum, zip(self, other)))
 
     def __eq__(self, other):
@@ -45,7 +45,7 @@ class vec2:
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec2(self.x // other, self.y // other)
-        raise TypeError("unsupported operand type(s) for //: 'vec2' and '" + other.__class__.__name__ + "'")
+        raise TypeError(f"unsupported operand type(s) for //: 'vec2' and '{other.__class__.__name__}'")
 
     def __getitem__(self, index):
         return [self.x, self.y][index]
@@ -62,7 +62,7 @@ class vec2:
         elif isinstance(other, vec2) or isinstance(other, list) or isinstance(other, tuple):
             raise NotImplementedError('vec2 cross product not implemented.')
         else:
-            raise TypeError("unsupported operand type(s) for *: 'vec2' and '" + other.__class__.__name__ + "'")
+            raise TypeError(f"unsupported operand type(s) for *: 'vec2' and '{other.__class__.__name__}'")
 
     def __neg__(self):
         return vec2(-self.x, -self.y)
@@ -77,7 +77,7 @@ class vec2:
         try:
             other = vec2(other)
         except:
-            raise TypeError("unsupported operand type(s) for -: 'vec2' and '" + other.__class__.__name__ + "'")
+            raise TypeError(f"unsupported operand type(s) for -: 'vec2' and '{other.__class__.__name__}'")
         return vec2(*map(math.fsum, zip(self, -other)))
 
     def __truediv__(self, other):
@@ -85,7 +85,7 @@ class vec2:
             return vec2(self.x / other, self.y / other)
         elif isinstance(other, vec2):
             raise ArithmeticError('Cannot divide vector by another vector.')
-        raise TypeError("unsupported operand type(s) for /: 'vec2' and '" + other.__class__.__name__ + "'")
+        raise TypeError(f"unsupported operand type(s) for /: 'vec2' and '{other.__class__.__name__}'")
 
     def magnitude(self):
         """Length of vector"""
@@ -129,7 +129,7 @@ class vec3:
         try:
             other = vec3(other)
         except:
-            raise TypeError("unsupported operand type(s) for +: 'vec3' and '"  + other.__class__.__name__ + "'")
+            raise TypeError(f"unsupported operand type(s) for +: 'vec3' and '{other.__class__.__name__}'")
         return vec3(*map(math.fsum, zip(self, other)))
 
     def __eq__(self, other):
@@ -149,7 +149,7 @@ class vec3:
             return vec3(self.x // other, self.y // other, self.z // other)
         elif isinstance(other, vec3):
             raise ArithmeticError('Cannot divide vector by another vector.')
-        raise TypeError("unsupported operand type(s) for //: 'vec3' and '"  + other.__class__.__name__ + "'")
+        raise TypeError(f"unsupported operand type(s) for //: 'vec3' and '{other.__class__.__name__}'")
 
     def __getitem__(self, index):
         return [self.x, self.y, self.z][index]
@@ -167,7 +167,7 @@ class vec3:
             try:
                 other = vec3(other)
             except:
-                raise TypeError("unsupported operand type(s) for *: 'vec3' and '"  + other.__class__.__name__ + "'")
+                raise TypeError(f"unsupported operand type(s) for *: 'vec3' and '{other.__class__.__name__}'")
             return vec3(math.fsum([self.y * other.z, -self.z * other.y]),
                         math.fsum([self.z * other.x, -self.x * other.z]),
                         math.fsum([self.x * other.y, -self.y * other.x]))
@@ -185,7 +185,7 @@ class vec3:
         try:
             other = vec3(other)
         except:
-            raise TypeError("unsupported operand type(s) for -: 'vec3' and '"  + other.__class__.__name__ + "'")
+            raise TypeError(f"unsupported operand type(s) for -: 'vec3' and '{other.__class__.__name__}'")
         return vec3(*map(math.fsum, zip(self, -other)))
 
     def __truediv__(self, other):
@@ -193,7 +193,7 @@ class vec3:
             return vec3(self.x / other, self.y / other, self.z / other)
         elif isinstance(other, vec3):
             raise ArithmeticError('Cannot divide vector by another vector.')
-        raise TypeError("unsupported operand type(s) for /: 'vec3' and '"  + other.__class__.__name__ + "'")
+        raise TypeError(f"unsupported operand type(s) for /: 'vec3' and '{other.__class__.__name__}'")
 
     def magnitude(self):
         return math.sqrt(self.sqrmagnitude())
@@ -255,7 +255,7 @@ class vec4:
         try:
             other = vec4(other)
         except:
-            raise TypeError("unsupported operand type(s) for +: 'vec4' and '"  + other.__class__.__name__ + "'")
+            raise TypeError(f"unsupported operand type(s) for +: 'vec4' and '{other.__class__.__name__}'")
         return vec4(self.w + other.w, self.x + other.x, self.y + other.y, self.z + other.z)
 
     def __eq__(self, other):
@@ -273,7 +273,7 @@ class vec4:
     def __floordiv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec4(self.w // other, self.x // other, self.y // other, self.z // other)
-        raise TypeError("unsupported operand type(s) for //: 'vec4' and '" + other.__class__.__name__ + "'")
+        raise TypeError(f"unsupported operand type(s) for //: 'vec4' and '{other.__class__.__name__}'")
 
     def __getitem__(self, index):#scalar = 0
         return [self.w, self.x, self.y, self.z][index]
@@ -294,7 +294,7 @@ class vec4:
                         (self.w * other.z) + (self.x * other.y) - (self.y * other.x) + (self.z * other.w))
         elif isinstance(other, vec3):
             raise NotImplementedError('vec3 multiplication not yet implemented.')
-        raise TypeError("unsupported operand type(s) for *: 'vec4' and '" + other.__class__.__name__ + "'")
+        raise TypeError(f"unsupported operand type(s) for *: 'vec4' and '{other.__class__.__name__}'")
 
     def __neg__(self):#not legit
         return vec4(-self.w, self.x, self.y, self.z)
@@ -309,13 +309,13 @@ class vec4:
         try:
             other = vec4(other)
         except:
-            raise TypeError("unsupported operand type(s) for -: 'vec4' and '" + other.__class__.__name__ + "'")
+            raise TypeError(f"unsupported operand type(s) for -: 'vec4' and '{other.__class__.__name__}'")
         return vec4(self.w - other.w, self.x - other.x, self.y - other.y, self.z - other.z)
 
     def __truediv__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return vec4(self.w / other, self.x / other, self.y / other, self.z / other)
-        raise TypeError("unsupported operand type(s) for /: 'vec2' and '" + other.__class__.__name__ + "'")
+        raise TypeError(f"unsupported operand type(s) for /: 'vec4' and '{other.__class__.__name__}'")
 
     def conjugate(self):
         return vec4(self.w, -1 * self.x, -1 * self.y, -1 * self.z)
@@ -344,7 +344,7 @@ def dot(a, b):
     elif isinstance(a, vec3) and isinstance(b, vec4):
         return math.fsum([a.x * b.x, a.y * b.y, a.z * b.z, b.w])
     else:
-        raise TypeError(''.join(('Types cannot be dotted. a: ', a.__class__.__name__, ' b: ', b.__class__.__name__)))
+        raise TypeError(f'Types cannot be dotted: {type(a)} & {type(b)}')
 
 def lerp(a, b, t):
     """Interpolates between two given points by t"""
@@ -357,7 +357,7 @@ def lerp(a, b, t):
             out.append(lerp(i, j, t))
         return out
     else:
-        raise TypeError('Types do not match. a: ' + str(type(a)) + ' b:' + str(type(b)))
+        raise TypeError(f'Types do not match: {type(a)} & {type(b)}')
 
 def slerp(a, b, t):#hard to read
     """Interpolates between two quaternions by t"""
