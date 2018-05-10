@@ -199,4 +199,3 @@ if __name__ == "__main__":
     # all_connections = [e['connections'] for e in all_ents_with_outputs]
     # #now add all referenced targetnames to list
     # #and create a top-down map of these ents
-    

@@ -1,5 +1,7 @@
 #TODO: export to obj (one object per solid)
 #TODO: obj import (each object is a solid)
+#TODO: render each plane of a solid as it intersects that solids bounding box
+# make that bounding box from verts supplied by the vmf
 
 import camera
 import ctypes
@@ -83,9 +85,6 @@ class solid:
 
             for plane_index, points in face_points.items():
                 loop = vector.CW_sort(points, planes[plane_index][0])
-                #z axis are inverted?
-                #everything is inverted?
-                #CW_sort may need center to be plane aligned
                 face_points[key] = loop
                 fan = loop_to_fan(loop)
                 all_tris += fan
@@ -175,8 +174,9 @@ def main(width, height):
     start_import = time.time()
     v = vmf_tool.vmf(open('test2.vmf'))
     # SOLIDS TO CONVEX TRIS
-    ## CAN'T HANDLE SINGLE BRUSHES
     all_solids = v.dict['world']['solids'] #multiple brushes
+    all_solids = [all_solids[40]] #single out single brushed
+    #MAP > SHOW SELECTED BRUSH NUMBER in hammer is very useful for this
     #dict.get(key) means you don't need a try for keys that a dict may not have
 ##    all_solids = [v.dict['world']['solid']] #single brush
     #create compares, each key hold the indices of it's intersecting planes
@@ -188,7 +188,6 @@ def main(width, height):
         planes = itertools.chain([s['plane'] for s in solid['sides']])
         planes = [*map(extract_str_plane, planes)]
         intersects = {}
-        #stores planes & their indices
         unchecked_planes = {i: plane for i, plane in enumerate(planes)}
         for i, a_plane in enumerate(planes):
             intersects[i] = []
@@ -200,15 +199,6 @@ def main(width, height):
                 if i in intersects[key]:
                     intersects[i].append(key)
 
-        #some plane's intersections are prevented by other intersections
-        #do two full passes per solid
-        # for i, a_plane in intersects.keys():
-            # ...
-        #foreach plane
-        #  if one of the intersecting plane intersects 2 others intersecting the initial plane
-        #  and there are more than 2 interscting planes (not a triangle)
-        #    remove this plane from intersections
-        #IS THERE A MORE EFFICIENT SINGLE-PASS METHOD?
         intersections = []
         others = dict(intersects)
         for i in intersects.keys():
@@ -239,24 +229,13 @@ def main(width, height):
 
         for plane_index, points in face_points.items():
             loop = vector.CW_sort(points, planes[plane_index][0])
-            #z axis are inverted?
-            #everything is inverted?
-            #CW_sort may need center to be plane aligned
             face_points[key] = loop
             fan = loop_to_fan(loop)
             all_tris += fan
             all_solid_polys[-1].append(fan)
 
-        #these are added to a vertexbuffer
-        #their indexes are associated with each face
-        #these indexes are then sorted clockwise relative to each faces normal
-        #these edgeloops are then assembled into triangle loops
-
-        #this is something vbsp.exe does, it just also splits the faces afterwards
-        #do t-juncts affect origfaces?
-
-        #if uvs are included in the vertex specification
-        #then indexes save nothing between face_points
+        #fans should be made via indices
+        #each face's verts must unique if format holds more than position data
         #BUILD TO BE MUTABLE
     print('import took {:.2f} seconds'.format(time.time() - start_import))
 
@@ -358,4 +337,3 @@ if __name__ == '__main__':
             elif key == '-h':
                 height = int(value)
     main(width, height)
-
