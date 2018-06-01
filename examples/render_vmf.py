@@ -30,7 +30,7 @@ class pivot(enum.Enum):
     individual = 3
 
 def draw_aabb(aabb):
-    """"Precede with "glBegin(GL_QUADS)"\nExpects glPolygonMode to be GL_LINE""""
+    """"Precede with "glBegin(GL_QUADS)"\nExpects glPolygonMode to be GL_LINE"""
     glVertex(aabb.min.x, aabb.max.y, aabb.max.z)
     glVertex(aabb.max.x, aabb.max.y, aabb.max.z)
     glVertex(aabb.max.x, aabb.min.y, aabb.max.z)
@@ -264,7 +264,7 @@ def loop_to_fan(verts):
         out += [out[0], out[-1], vert]
     return out
 
-def main(width, height):
+def main(vmf_path, width=1024, height=576):
     SDL_Init(SDL_INIT_VIDEO)
     window = SDL_CreateWindow(b'SDL2 OpenGL', SDL_WINDOWPOS_CENTERED,  SDL_WINDOWPOS_CENTERED, width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_BORDERLESS)
     glContext = SDL_GL_CreateContext(window)
@@ -279,7 +279,7 @@ def main(width, height):
     glPointSize(4)
 
     start_import = time.time()
-    v = vmf_tool.vmf(open('../mapsrc/test2.vmf'))
+    v = vmf_tool.vmf(open(vmf_path))
     # SOLIDS TO CONVEX TRIS
     all_solids = v.dict['world']['solids'] #multiple brushes
     all_solids = [all_solids[40]] #single out single brushed
@@ -451,15 +451,7 @@ def main(width, height):
         SDL_GL_SwapWindow(window)
 
 if __name__ == '__main__':
-    import getopt
+    main('../mapsrc/test2.vmf')
     import sys
-    options = getopt.getopt(sys.argv[1:], 'w:h:')
-    width = 1024
-    height = 576
-    for option in options:
-        for key, value in option:
-            if key == '-w':
-                width = int(value)
-            elif key == '-h':
-                height = int(value)
-    main(width, height)
+    for file in sys.argv[1:]:
+        main(file)
