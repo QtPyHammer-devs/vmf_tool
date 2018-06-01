@@ -1,15 +1,7 @@
 #TODO: export to obj (one object per solid)
 #TODO: obj import (each object is a solid)
-#TODO: render each plane of a solid as it intersects that solids bounding box
-# make that bounding box from verts supplied by the vmf
-<<<<<<< HEAD:examples/render_vmf.py
-import sys
-sys.path.insert(0, '../')
-=======
-# 2D VIEWPORTS
-
->>>>>>> f885727d86ac30fb28a8e4b004b8360efe1fce29:render_vmf.py
-import camera
+#TODO: render each plane of a solid within it's bounding box
+#TODO: 2D viewports
 import colorsys
 import ctypes
 import enum
@@ -18,12 +10,17 @@ from OpenGL.GL import * #Installed via pip (PyOpenGl 3.1.0)
 from OpenGL.GLU import * #PyOpenGL-accelerate 3.1.0 requires specific MSVC builds for Cython
 #get precompiled binaries if you can, it's much less work
 #for vertex buffers Numpy is needed (also available through pip)
-import physics
 from sdl2 import * #Installed via pip (PySDL2 0.9.5)
 #requires SDL2.dll (steam has one in it's main directory) & an Environment Variable holding it's location
 import time
+import sys
+sys.path.insert(0, '../')
+
+import camera
 import vector
 import vmf_tool
+import physics
+
 
 class pivot(enum.Enum):
     """like blender pivot point"""
@@ -31,6 +28,28 @@ class pivot(enum.Enum):
     active = 1
     cursor = 2
     individual = 3
+
+def draw_aabb(aabb):
+    """"Precede with "glBegin(GL_QUADS)"\nExpects glPolygonMode to be GL_LINE""""
+    glVertex(aabb.min.x, aabb.max.y, aabb.max.z)
+    glVertex(aabb.max.x, aabb.max.y, aabb.max.z)
+    glVertex(aabb.max.x, aabb.min.y, aabb.max.z)
+    glVertex(aabb.min.x, aabb.min.y, aabb.max.z)
+
+    glVertex(aabb.min.x, aabb.max.y, aabb.max.z)
+    glVertex(aabb.max.x, aabb.max.y, aabb.max.z)
+    glVertex(aabb.max.x, aabb.max.y, aabb.min.z)
+    glVertex(aabb.min.x, aabb.max.y, aabb.min.z)
+
+    glVertex(aabb.min.x, aabb.min.y, aabb.max.z)
+    glVertex(aabb.max.x, aabb.min.y, aabb.max.z)
+    glVertex(aabb.max.x, aabb.min.y, aabb.min.z)
+    glVertex(aabb.min.x, aabb.min.y, aabb.min.z)
+
+    glVertex(aabb.min.x, aabb.max.y, aabb.min.z)
+    glVertex(aabb.max.x, aabb.max.y, aabb.min.z)
+    glVertex(aabb.max.x, aabb.min.y, aabb.min.z)
+    glVertex(aabb.min.x, aabb.min.y, aabb.min.z)
 
 class solid:
     def __init__(self, source):
@@ -40,7 +59,8 @@ class solid:
         if isinstance(source, dict):
             #use/store as many key-values as posible
             self.dict = source #retained for accuracy / debug
-<<<<<<< HEAD:examples/render_vmf.py
+        else:
+            raise RuntimeError(f'Tried to create solid from invalid type: {type(source)}')
             self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
             self.planes = []
             self.vertices = []
@@ -108,10 +128,6 @@ class solid:
             self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
             self.center = sum(self.vertices, vector.vec3) / len(self.vertices)
             self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
-=======
->>>>>>> f885727d86ac30fb28a8e4b004b8360efe1fce29:render_vmf.py
-        else:
-            raise RuntimeError(f'Tried to create solid from invalid type: {type(source)}')
         self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
         self.planes = []
         self.vertices = []
@@ -180,7 +196,7 @@ class solid:
         min_x, max_x = min(all_x), max(all_x)
         min_y, max_y = min(all_y), max(all_y)
         min_z, max_z = min(all_z), max(all_z)
-        self.source_aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
+        self.vmf_aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
 
         all_x = [v.x for v in self.vertices]
         all_y = [v.y for v in self.vertices]
@@ -263,7 +279,7 @@ def main(width, height):
     glPointSize(4)
 
     start_import = time.time()
-    v = vmf_tool.vmf(open('test2.vmf'))
+    v = vmf_tool.vmf(open('../mapsrc/test2.vmf'))
     # SOLIDS TO CONVEX TRIS
     all_solids = v.dict['world']['solids'] #multiple brushes
     all_solids = [all_solids[40]] #single out single brushed
