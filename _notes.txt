@@ -24,3 +24,5 @@ create a test exec file
  -- compare both demos
  -- packets to instructions
  -- convert to timeline & keyframes
+
+move dragdrop_brushside & render_vmf to an examples folder

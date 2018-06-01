@@ -2,8 +2,10 @@
 #TODO: obj import (each object is a solid)
 #TODO: render each plane of a solid as it intersects that solids bounding box
 # make that bounding box from verts supplied by the vmf
-
+import sys
+sys.path.insert(0, '../')
 import camera
+import colorsys
 import ctypes
 import enum
 import itertools
@@ -90,6 +92,7 @@ class solid:
                 all_tris += fan
                 all_solid_polys[-1].append(fan)
 
+            #utilise verts from source (good for debug)
             all_x = [v.x for v in self.vertices]
             all_y = [v.y for v in self.vertices]
             all_z = [v.z for v in self.vertices]
@@ -170,6 +173,7 @@ def main(width, height):
 ##    glPolygonMode(GL_BACK, GL_POINT)
     glPolygonMode(GL_BACK, GL_LINE)
     glFrontFace(GL_CW)
+    glPointSize(4)
 
     start_import = time.time()
     v = vmf_tool.vmf(open('test2.vmf'))
@@ -223,16 +227,27 @@ def main(width, height):
             Y = p0.y + p1.y + p2.y
             Z = p0.z + p1.z + p2.z
             V = vector.vec3(X, Y, Z)
+            # all_ok = True
+            # print(f'*** {V:.2f} ***')
+            # for plane in planes:
+            #     V_dot, V_dot_max = vector.dot(V, plane[0]), plane[1]
+            #     if V_dot_max < 0:
+            #         V_dot, V_dot_max = -V_dot, -V_dot_max
+            #     if V_dot > V_dot_max:
+            #         all_ok = False
+            #         print(f'{V_dot:.2f} > {V_dot_max:.2f} on axis {plane[0]:.3f}')
+            # if all_ok:
             face_points[i].append(V)
             face_points[j].append(V)
             face_points[k].append(V)
 
         for plane_index, points in face_points.items():
-            loop = vector.CW_sort(points, planes[plane_index][0])
-            face_points[key] = loop
-            fan = loop_to_fan(loop)
-            all_tris += fan
-            all_solid_polys[-1].append(fan)
+            if points != []:
+                loop = vector.CW_sort(points, planes[plane_index][0])
+                face_points[key] = loop
+                fan = loop_to_fan(loop)
+                all_tris += fan
+                all_solid_polys[-1].append(fan)
 
         #fans should be made via indices
         #each face's verts must unique if format holds more than position data
@@ -292,14 +307,22 @@ def main(width, height):
         glPushMatrix()
         CAMERA.set()
 
-        glColor(1, 1, 1)
         for solid in all_solid_polys:
-            glColor(*solid[0])
-            for loop in solid[1:]:
+            # glColor(*solid[0])
+            for loop, p_index in zip(solid[1:], face_points.keys()):
+                glColor(*[i / 2 + .5 for i in planes[p_index][0]])
                 glBegin(GL_POLYGON)
                 for vertex in loop:
                     glVertex(*vertex)
                 glEnd()
+
+        glColor(1, 1, 1)
+        glBegin(GL_POINTS)
+        for solid in all_solid_polys:
+            for loop in solid[1:]:
+                for vertex in loop:
+                    glVertex(*vertex)
+        glEnd()
 
         glDisable(GL_DEPTH_TEST)
         glBegin(GL_LINES)
