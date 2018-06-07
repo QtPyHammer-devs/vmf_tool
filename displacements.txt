@@ -23,6 +23,11 @@ The order the barymetric coords are listed in is thus:
   20  21  22  23  24
 I am very glad that dispverts are ordered in such a straightforward manner.
 
+the pattern can be duplicated in this form:
+odd_row   = |\|/| * POWER
+even_row = |/|\| * POWER
+repeat POWER times
+
 a 90 degree rotation (or some multiplication thereof) is quite straight forward.
   
 bsp_tool.py already has a method for adding dispverts vectors
