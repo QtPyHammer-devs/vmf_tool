@@ -65,10 +65,13 @@ class solid:
             self.planes = []
             self.vertices = []
             ### wait how does this work again? ###
-            # for side in source['sides']:
-            #     self.planes.append(extract_str_plane(side['plane']))
-            # planes = itertools.chain([s['plane'] for s in source['sides']])
-            # planes = [*map(extract_str_plane, planes)]
+            self.planes = []
+            for side in source['sides']:
+                self.self.planes.append(extract_str_plane(side['plane']))
+            self.planes = [*itertools.chain([s['plane'] for s in source['sides']])]
+            self.source_vertices = [p[1:-1].split(') (') for p in self.planes]
+            self.source_vertices = [map(float, t) for t in self.source_vertices]
+            self.planes = [*map(extract_str_plane, self.planes)]
             intersects = {}
             #stores planes & their indices
             unchecked_planes = {i: plane for i, plane in enumerate(planes)}
@@ -95,6 +98,8 @@ class solid:
                                 intersections.append([i, j, k])
 
             face_points = {i: [] for i, p in enumerate(self.planes)}
+            self.faces = face_points #{plane_index: [vertex_index, ...], ...}
+            a = 0
             for i, j, k in intersections:
                 p0 = planes[i]
                 p1 = planes[j]
@@ -106,13 +111,18 @@ class solid:
                 Y = p0.y + p1.y + p2.y
                 Z = p0.z + p1.z + p2.z
                 V = vector.vec3(X, Y, Z)
+                self.vertices.append(V)
+                self.faces[i].append(a)
+                self.faces[j].append(a)
+                self.faces[k].append(a)
+                a += 1
                 #check if each one is above another plane in the solid
                 face_points[i].append(V)
                 face_points[j].append(V)
                 face_points[k].append(V)
 
-            for plane_index, points in face_points.items():
-                loop = vector.CW_sort(points, planes[plane_index][0])
+            for i, points in face_points.items():
+                loop = vector.CW_sort(points, self.planes[i][0])
                 face_points[key] = loop
                 fan = loop_to_fan(loop)
                 all_tris += fan
@@ -127,7 +137,7 @@ class solid:
             min_z, max_z = min(all_z), max(all_z)
             self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
             self.center = sum(self.vertices, vector.vec3) / len(self.vertices)
-            self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
+            # self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
         self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
         self.planes = []
         self.vertices = []
