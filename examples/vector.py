@@ -392,18 +392,50 @@ def rotate_to_normal(point, normal, start=vec3(0, 0, 1)):
 def angle_between(a, b):
     dot(a, b) / (a.magnitude() * b.magnitude())
 
-def CW_sort(vectors, normal):
-    """vec3 only, for vec2 use a normal of (0, 0, 1)"""
+def CW_sort(vectors, normal): #doesn't do it's job properly
+    """vec3 only, for vec2 use a normal of (0, 0, 1)\nfor CCW, invert the normal"""
     O = sum(vectors, vec3()) / len(vectors)
-    centered_vectors = [v - O for v in vectors]
+    centered_vectors = [v - O for v in vectors] #why?
     A = centered_vectors[0]
     indexed_thetas = {dot(A * B, normal): vectors[i+1] for i, B in enumerate(vectors[1:])}
     sorted_vectors = [vectors[0]]
     sorted_vectors += [indexed_thetas[key] for key in sorted(indexed_thetas)]
     return sorted_vectors
 
-def CCW_sort(vectors):
-    return list(reversed(CW_sort(vectors)))
+# EXTREMELY BORKED
+##def CW_sort_index(vectors, indices, normal): #Doesn't handle >180 degrees (or direction of rotation)
+##    """expects all vector to be vec3, returns sorted indices"""
+##    indexed_vectors = [vectors[index] for index in indices]
+##    A = indexed_vectors[0] * N
+##    print(indexed_vectors[1:], indices[1:], sep='\n')
+##    #dot gives angle between two vectors but not direction
+##    #is also innacurate for angles >= 180 degrees
+##    #MAP NEAREST POINTS TO CREATE A NEIGHBOUR MAP?!
+##    #DISCERN NEGATIVE ROTATION FROM POSITIVE!
+##    theta_map = [(dot(A * B, normal): index) for B, index in zip(indexed_vectors[1:], indices[1:])]
+##    #sorted() uses a function to assign list items a scalar value and sorts these
+##    #theta_map just sorts by closest (rotationally) to first point
+##    sorted_indices = [indices[0]]
+##    sorted_indices += ...
+##    return sorted_indices
+    
 
 if __name__ == "__main__":
-    pass
+    A = vec3(-1, 1)
+    B = vec3(1, 1)
+    C = vec3(1, -1)
+    D = vec3(-1, -1)
+    
+    N = vec3(0, 0, 1)
+    winding = [0, 1, 2, 3]
+    letters = 'ABCD'
+
+    import itertools
+    for order in itertools.permutations(winding, 4):
+        sorted_indices = CW_sort_index([A, B, C, D], order, N)
+        print(f'{letters[sorted_indices[0]]}{letters[sorted_indices[1]]}\n{letters[sorted_indices[2]]}{letters[sorted_indices[3]]}\n')
+
+    print("*** UNINDEXED")
+    for order in itertools.permutations(winding, 4):
+        sorted_points = CW_sort([A, B, C, D], N)
+        print(f'{sorted_points[0]}\t{sorted_points[1]}\n{sorted_points[2]}\t{sorted_points[3]}\n')
