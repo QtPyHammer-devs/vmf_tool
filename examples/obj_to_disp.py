@@ -54,7 +54,6 @@ def points_to_disp(vertices, indices): # THIS METHOD IS FOR QUADS ONLY!
     # DON'T SORT CLOCKWISE
     # SORT ALONG EDGES
     # |0 \ 1 / 2 \ 3 / 4|
-    # |  -   - | -   -  |
     # |5 / 6 \ 7 / 8 \ 9|
     corners = [*filter(lambda i: len(neighbourhood[i]) == 2, neighbourhood)]
     edges = [*filter(lambda i: len(neighbourhood[i]) == 3, neighbourhood)]
@@ -87,12 +86,12 @@ def points_to_disp(vertices, indices): # THIS METHOD IS FOR QUADS ONLY!
     # create barymetric space from corners
     # generate disp-vec matching points to barymetric coords (preserve neighbours)
     # generate vmf solid
-    ### MAIN PATTERN
+    ### CORE PATTERN
     #ROW 0 = |\|/| * POWER
     #ROW 1 = |/|\| * POWER
     # repeat POWER times
 
-    
+# sample displacement face    
 ##side
 ##{
 ##        "id" "1"
