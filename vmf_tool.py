@@ -17,6 +17,7 @@
 ##QUESTIONS:
 # can this code be used for .bsp entitiy lumps?
 # -- are bsp entities ever multi-dimensional?
+import io
 
 def pluralise(word):
     if word.endswith('f'): # self -> selves
@@ -88,12 +89,14 @@ def yield_dict(d, depth=0):
 
 class vmf:
     def __init__(self, file):
-        if not isinstance(file, str):
+        if isinstance(file, io.TextIOWrapper):
             self.filename = file.name
             file_iter = file.readlines()
-        else:
+        elif isinstance(file, str):
             self.filename = None
             file_iter = file.split('\n')
+        else:
+            raise RuntimeError('Bad Input')
         self.dict = {}
         current_scope = scope([])
         line_no = 1

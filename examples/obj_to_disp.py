@@ -12,8 +12,8 @@ def get_obj_vertices(filepath):
     """position data only"""
     file = open(filepath)
     # predefined splitting (to match bsp to obj style)
-    # g = [object, ...]
-    # o = [[vertex, ...], [index, ...]]
+    # g = [object, ...] # group / visgroup
+    # o = [[vertex, ...], [index, ...]] # solid / group
     # each object is a displacement
     # each group is a solid (bsp just makes all disps the same group)
     v  = []
@@ -39,59 +39,79 @@ def get_obj_vertices(filepath):
     file.close()
     return vertices, indices
 
-# segments greater than 81 (power 3) must be broken down
+# the street functions could be handy for edge loop selection (cylinder texturing)
+def get_street(start, neighbourhood, n_filter=lambda x: True): # for edges
+        """a street is a sequence of neighbours\nneighbourhood map must index points"""
+        out = start # expecting the first two neighbours of the street
+        good_neighbour = lambda x: x not in out and n_filter(x)
+        while True:
+            neighbours = neighbourhood[out[-1]]
+            next_neighbour = [*filter(good_neighbour, neighbours)]
+            if len(next_neighbour) == 1:
+                out += next_neighbour
+            else:
+                break
+        return out
+
+
+def get_paralell_street(start, adjacent_street, neighbourhood): # no user filter
+    """a street is a sequence of neighbours\nneighbourhood map must index points"""
+    out = start
+    for other_neighbour in adjacent_street[1:]:
+        good_neighbour = lambda x: x in neighbourhood[other_neighbour] and x not in adjacent_street
+        neighbours = neighbourhood[out[-1]]
+        next_neighbour = [*filter(good_neighbour, neighbours)]
+##        print(out[-1], neighbours)
+##        print(other_neighbour, neighbourhood[other_neighbour])
+##        print(next_neighbour)
+        out.append(next_neighbour[0])
+    return out
+
+# segments greater than 81 (power 3) must be broken down (neighbourhood maps should be good for splitting)
+# a seperate function should have already split up indicies into displacement shaped chunks
 def points_to_disp(vertices, indices): # THIS METHOD IS FOR QUADS ONLY!
     """expects quads the size of a power2 or 3 displacement"""
-    neighbourhood = {x: set() for x in range(len(vertices))}
-    # not working as it should
+    neighbourhood = {x: set() for x in range(len(vertices))} #a map that tells you who your neighbours are
     for i, index in enumerate(indices[::4]):
         i *= 4
         quad = [index, indices[i + 1], indices[i + 2], indices[i + 3]]
         for i, point in enumerate(quad):
             neighbourhood[point].add(quad[i - 1])
             neighbourhood[point].add(quad[i + 1 if i != 3 else 0])
-    # use neighbourhood map to split at poles? (5 + neighbours)
-    # DON'T SORT CLOCKWISE
-    # SORT ALONG EDGES
-    # |0 \ 1 / 2 \ 3 / 4|
-    # |5 / 6 \ 7 / 8 \ 9|
     corners = [*filter(lambda i: len(neighbourhood[i]) == 2, neighbourhood)]
     edges = [*filter(lambda i: len(neighbourhood[i]) == 3, neighbourhood)]
-    edges = [*itertools.chain(corners[1:], edges)]
-    print(neighbourhood)
-    print(corners)
-    print(edges)
-    # A must touch B & D, but never C
-    # B must touch A & C, but never D
-    # C must touch B & D, but never A
-    # D must touch A & C, but never B
 
-    # this sequencer needs to be a function
-    # should recycle this for rows
+    is_edge = lambda point: point in edges
+    end_corner = lambda street: [*filter(lambda neighbour: neighbour in corners, neighbourhood[street[-1]])][0]
+
     A = corners[0]
-    AB = [A, list(neighbourhood[A])[0]] 
-    while not any([c in AB for c in corners[1:]]):
-        next_edge = neighbourhood[AB[-1]]
-        next_edge = [*filter(lambda x: x not in AB and x in edges, next_edge)]
-        AB += next_edge
-    B = AB[-1]
-    print(AB)
+    A_edge_neighbours = [*filter(is_edge, neighbourhood[A])]
+    AB = get_street([A, A_edge_neighbours[0]], neighbourhood, n_filter=is_edge)
+    B = end_corner(AB)
+    AB.append(B)
 
-    
-    BC = [B] # and B's neighbour that isn't in AB
-    # split edges into neighbour sequences
-    # match edges to corners
-    
-    # generate base solid
-    # create barymetric space from corners
-    # generate disp-vec matching points to barymetric coords (preserve neighbours)
-    # generate vmf solid
-    ### CORE PATTERN
-    #ROW 0 = |\|/| * POWER
-    #ROW 1 = |/|\| * POWER
-    # repeat POWER times
+    AD = get_street([A, A_edge_neighbours[1]], neighbourhood, n_filter=is_edge)
+    D = end_corner(AD)
+    AD.append(D)
 
-# sample displacement face    
+    rows = [AB]
+    for start in AD[1:]:
+        # good neighbour is neighbour of rows[-1][i + 1]
+        row = get_paralell_street([start], rows[-1], neighbourhood)
+        rows.append(row)
+
+    # rows are nice and easy to split!
+    # could get fancy with splitting and merge some power2s with vector.lerp
+
+    # assigning the rows to a face is another function's job
+    return rows
+    
+# generate base solid
+# create barymetric space from corners
+# generate disp-vec matching points to barymetric coords (preserve neighbours)
+# generate vmf solid
+
+# test_disp.vmf (line 32 - line 99)
 ##side
 ##{
 ##        "id" "1"
@@ -106,15 +126,15 @@ def points_to_disp(vertices, indices): # THIS METHOD IS FOR QUADS ONLY!
 ##        dispinfo
 ##        {
 ##                "power" "2"
-##                "startposition" "[-256 -256 0]" // corner A
+##                "startposition" "[-256 -256 0]" // vertices[A]
 ##                "flags" "0"
 ##                "elevation" "0"
 ##                "subdiv" "0"
 ##                normals
 ##                {
 ##                        // each 3 define a normalised vector
-##                        "row0" "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
-##                        "row1" "0 0 0 0 0 1 0 0 0 0 0 1 0 0 0"
+##                        "row0" "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" // X Y Z X Y Z X Y Z X Y Z X Y Z
+##                        "row1" "0 0 0 0 0 1 0 0 0 0 0 1 0 0 0" // ' '.join(map(str, itertools.chain(*row)))
 ##                        "row2" "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
 ##                        "row3" "0 0 0 0 0 1 0 0 0 0 0 1 0 0 0"
 ##                        "row4" "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"
@@ -172,9 +192,48 @@ def points_to_disp(vertices, indices): # THIS METHOD IS FOR QUADS ONLY!
 
 if __name__ == "__main__":
     import sys
+    sys.path.insert(0, '../')
+    import vmf_tool
+    # base = vmf(open('../mapsrc/blank.vmf'))
     for filepath in sys.argv[1:]:
-        #convert objs into displacements, creating files for each
+        ## convert objs into displacements, creating files for each
+        # out_vmf = base
+        # outfile = open(f'{filepath[:-4]}.vmf', 'w')
+        ## generate solids, and inject into vmf
         ...
 
-    vertices, indices = get_obj_vertices('power2_disp_quads.obj')
-    points_to_disp(vertices, indices)
+    vertices, indices = get_obj_vertices('power2_disp_quads.obj') # you're my power 2!
+    rows = points_to_disp(vertices, indices) # and I get my kicks just out of you!
+    # make rows relative to barymetric coords
+    # indices > vertices > vectors
+    A = vector.vec3(*vertices[rows[0][0]])
+    B = vector.vec3(*vertices[rows[0][-1]])
+    C = vector.vec3(*vertices[rows[-1][-1]])
+    D = vector.vec3(*vertices[rows[-1][0]])
+    # snap to grid, so edges & corners can be offset
+    # or predefined
+    AD = D - A
+    BC = C - B
+    vector_rows = []
+    # assuming power 2
+    for x, row in enumerate(rows):
+        x = x / 4
+        vector_rows.append([])
+        for y, index in enumerate(row):
+            y = y / 4
+            bary_point = vector.lerp(A + (AD * x), B + (BC * x), y)
+            point = vertices[index] - bary_point
+            vector_rows[-1].append(point)
+           
+    base_vmf = vmf_tool.vmf(open('../mapsrc/test_disp.vmf'))
+    # use vmf_tool.scope to index displacements
+    base_vmf.dict['world']['solid']['sides'][0]['dispinfo']['startposition'] = f'[{A.x} {A.y} {A.z}]'
+    for i, row in enumerate(vector_rows):
+        row_distances = [v.magnitude() for v in row] # 1 per vert
+        row_normals = [v / w if w != 0 else vector.vec3() for v, w in zip(row, row_distances)] # 3 per vert
+        row_normals = [*map(lambda v: f'{v}', row_normals)]
+        row_distances = [*map(str, row_distances)]
+        base_vmf.dict['world']['solid']['sides'][0]['dispinfo']['distances'][f'row{i}'] = ' '.join(row_distances)
+        base_vmf.dict['world']['solid']['sides'][0]['dispinfo']['normals'][f'row{i}'] = ' '.join(row_normals)
+
+    base_vmf.export(open('power2_obj.vmf', 'w'))
