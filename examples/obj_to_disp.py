@@ -2,6 +2,8 @@
 ## TODO: efficient use of solids (as many sides as possible)
 ## TODO: decent auto-generated texture-vecs (match to obj?)
 ## TODO: port test .objs into modified mapsrc/blank.vmf
+# multi-res scultping may result in strange poles and create issues
+# need to keep displacement form but map creases (without warping uvs too much)
 import itertools
 import vector
 
@@ -202,6 +204,7 @@ if __name__ == "__main__":
         ## generate solids, and inject into vmf
         ...
 
+    ### INJECTS DISPLACEMENT DATA INTO A DISPLACEMENT MADE IN HAMMER ###
     vertices, indices = get_obj_vertices('power2_disp_quads.obj') # you're my power 2!
     rows = points_to_disp(vertices, indices) # and I get my kicks just out of you!
     # make rows relative to barymetric coords
@@ -226,14 +229,14 @@ if __name__ == "__main__":
             vector_rows[-1].append(point)
            
     base_vmf = vmf_tool.vmf(open('../mapsrc/test_disp.vmf'))
-    # use vmf_tool.scope to index displacements
-    base_vmf.dict['world']['solid']['sides'][0]['dispinfo']['startposition'] = f'[{A.x} {A.y} {A.z}]'
+    dispinfo = vmf_tool.scope(['world', 'solid', 'sides', 0, 'dispinfo']) # solid 0, side 0
+    exec(f"base_vmf.dict{dispinfo}['startposition'] = '[{A.x} {A.y} {A.z}]'")
     for i, row in enumerate(vector_rows):
         row_distances = [v.magnitude() for v in row] # 1 per vert
         row_normals = [v / w if w != 0 else vector.vec3() for v, w in zip(row, row_distances)] # 3 per vert
         row_normals = [*map(lambda v: f'{v}', row_normals)]
         row_distances = [*map(str, row_distances)]
-        base_vmf.dict['world']['solid']['sides'][0]['dispinfo']['distances'][f'row{i}'] = ' '.join(row_distances)
-        base_vmf.dict['world']['solid']['sides'][0]['dispinfo']['normals'][f'row{i}'] = ' '.join(row_normals)
+        exec(f"base_vmf.dict{dispinfo}['distances']['row{i}'] = ' '.join(row_distances)")
+        exec(f"base_vmf.dict{dispinfo}['normals']['row{i}'] = ' '.join(row_normals)")
 
     base_vmf.export(open('power2_obj.vmf', 'w'))
