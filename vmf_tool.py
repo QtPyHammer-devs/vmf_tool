@@ -171,7 +171,6 @@ if __name__ == "__main__":
         times.append(time_taken)
     print(f'average time: {sum(times) / 16:.3f}')
 
-
     # # filter(lambda x: x['material'] != 'TOOLS/TOOLSNODRAW' and x['material'] != 'TOOLS/TOOLSSKYBOX', all_sides)
     # # [x['classname'] for x in v.dict['entities']]
     # all_ents_with_outputs = list(filter(lambda e: 'connections' in e.keys(), v.dict['entities']))
