@@ -392,10 +392,10 @@ def rotate_to_normal(point, normal, start=vec3(0, 0, 1)):
 def angle_between(a, b):
     dot(a, b) / (a.magnitude() * b.magnitude())
 
-def CW_sort(vectors, normal): #doesn't do it's job properly
+def CW_sort(vectors, normal): # doesn't do it's job properly
     """vec3 only, for vec2 use a normal of (0, 0, 1)\nfor CCW, invert the normal"""
     O = sum(vectors, vec3()) / len(vectors)
-    centered_vectors = [v - O for v in vectors] #why?
+    centered_vectors = [v - O for v in vectors]
     A = centered_vectors[0]
     indexed_thetas = {dot(A * B, normal): vectors[i+1] for i, B in enumerate(vectors[1:])}
     sorted_vectors = [vectors[0]]
@@ -427,15 +427,21 @@ if __name__ == "__main__":
     D = vec3(-1, -1)
     
     N = vec3(0, 0, 1)
-    winding = [0, 1, 2, 3]
-    letters = 'ABCD'
+##    winding = [0, 1, 2, 3]
+##    letters = 'ABCD'
+##
+##    import itertools
+##    for order in itertools.permutations(winding, 4):
+##        sorted_indices = CW_sort_index([A, B, C, D], order, N)
+##        print(f'{letters[sorted_indices[0]]}{letters[sorted_indices[1]]}\n{letters[sorted_indices[2]]}{letters[sorted_indices[3]]}\n')
+##
+##    print("*** UNINDEXED")
+##    for order in itertools.permutations(winding, 4):
+##        sorted_points = CW_sort([A, B, C, D], N)
+##        print(f'{sorted_points[0]}\t{sorted_points[1]}\n{sorted_points[2]}\t{sorted_points[3]}\n')
 
-    import itertools
-    for order in itertools.permutations(winding, 4):
-        sorted_indices = CW_sort_index([A, B, C, D], order, N)
-        print(f'{letters[sorted_indices[0]]}{letters[sorted_indices[1]]}\n{letters[sorted_indices[2]]}{letters[sorted_indices[3]]}\n')
 
-    print("*** UNINDEXED")
-    for order in itertools.permutations(winding, 4):
-        sorted_points = CW_sort([A, B, C, D], N)
-        print(f'{sorted_points[0]}\t{sorted_points[1]}\n{sorted_points[2]}\t{sorted_points[3]}\n')
+    A = (vec3() - A).normalise()
+    B = (vec3() - B).rotate(0, 0, -45).normalise()
+    theta = dot(A, B)
+    print(f'<{A:.2f}>, <{B:.2f}> theta = {theta}')
