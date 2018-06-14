@@ -5,13 +5,14 @@
 ## TODO: move towards group-object oriented system
 # multi-res scultping may result in strange poles and create issues
 # need to keep displacement form but map creases (without warping uvs too much)
+# lerp & merge to re-form into something displacement-like
 import itertools
 import vector
 
 # remember default .obj orientation is +Y-UP -Z-FORWARD
 # orientation is not specified in the file
 # assuming +Z-UP +Y-FOWARD for now
-def get_obj_vertices(filepath):
+def obj_indexed_vertices(filepath):
     """positions only"""
     file = open(filepath)
     v  = []
@@ -37,7 +38,7 @@ def get_obj_vertices(filepath):
     file.close()
     return vertices, indices
 
-def obj_out(filepath):
+def obj_grouped_objects(filepath):
     """positions & groupings only"""
     file = open(filepath)
     g = ['group0'] # (name, object_name1, ...)
@@ -129,6 +130,8 @@ def quads_to_rows(vertices, indices):
         row = get_paralell_street([start], rows[-1], neighbourhood)
         rows.append(row)
     return rows
+
+# change starting corners to offset the rotation obj sampling creates
     
 # generate a solid in a sensible place and turn it into displacements
 
@@ -145,7 +148,7 @@ if __name__ == "__main__":
         ...
 
     ### INJECTS DISPLACEMENT DATA INTO A DISPLACEMENT MADE IN HAMMER ###
-    vertices, indices = get_obj_vertices('power2_disp_quads.obj')
+    vertices, indices = obj_indexed_vertices('power2_disp_quads.obj')
     rows = quads_to_rows(vertices, indices)
     # make rows relative to barymetric coords
     # indices > vertices > vectors
