@@ -131,6 +131,58 @@ def quads_to_rows(vertices, indices):
         rows.append(row)
     return rows
 
+
+def change_direction(rows):
+    out = [[]] * len(rows)
+    for i, row in enumerate(rows):
+        for j, value in enumerate(row):
+            out[j][i] = value
+    return out
+
+def rotate(rows, times):
+    """rotates rows 90 degrees CW * times"""
+    times = times % 4
+    # 90
+    # A[0][0] = [0][-1]
+    # B[0][-1] = [-1][-1]
+    # C[-1][-1] = [-1][0]
+    # D[-1][0] = [0][0]
+    # 180
+    # rows = reversed(rows) # flip y
+    # for i, row in enumerate(rows):
+    #   rows[i] = row(reversed) # flip x
+
+def generate_solid(rows):
+    A = rows[0][0]
+    B = rows[0][-1]
+    C = rows[-1][-1]
+    D = rows[-1][0]
+
+    ABC = ((A - B) * (C - B)).normalise()
+    CDB = ((C - D) * (B - D)).normalise()
+    N = ABC + CDB / 2
+
+    dominant_axis = vector.vec3()
+    dominant_axis[N.index(max(N))] = 1
+
+    solid = {"id": "0", "sides": [], "editor": {
+                 "color": "255 0 255", "visgroupshown": "1",
+                 "visgroupautoshown": "1"}}
+
+    disp_side = {"id": "1", "material": "DEV/DEV_BLENDMEASURE",
+                 }
+    #disp_side["dispinfo" = {"flags": "0", "subdiv": "0", "elevation": "0"}
+    #disp_side["dispinfo"]["power"]
+    #disp_side["dispinfo"]["startposition"]
+    #disp_side["dispinfo""]
+    #disp_side["plane"] = ABC (scaled flat & snapped to grid)
+    #solid["sides"].append(disp_side)
+    # get bounds of A, B, C & D
+    # snap A, B & C to GRID (2^x integers)
+    # take each edge and add dominant_axis * 64 to winding
+    # final face is reversed ABC offset by dominant_axis * 64
+    # DISPLACEMENT IS ALWAYS SIDE 0
+
 # change starting corners to offset the rotation obj sampling creates
     
 # generate a solid in a sensible place and turn it into displacements
