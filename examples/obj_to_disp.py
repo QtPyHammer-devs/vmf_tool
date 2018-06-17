@@ -20,7 +20,7 @@ def obj_indexed_vertices(filepath):
     vertices = []
     indices = []
     for line in file.readlines():
-        line = line[:-1] # remove \n
+        line = line.rstrip('\n')
         if line.startswith('v'):
             v.append([float(f) for f in line.split(' ')[1:]])
         elif line.startswith('f'):
