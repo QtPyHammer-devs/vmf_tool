@@ -1,27 +1,31 @@
-import itertools
 import vector
 
-def obj_solid(filepath):
+def obj_solids(filepath): # split by object and group
     """turns faces into sides of a .vmf solid"""
-    solid = {"id": "0", "sides": [], "editor": {
-                 "color": "255 0 255", "visgroupshown": "1",
-                 "visgroupautoshown": "1"}}
     file = open(filepath)
     v  = []
     side_id = 0
+    brush = {"sides": [], "editor": {
+                 "color": "255 0 255", "visgroupshown": "1",
+                 "visgroupautoshown": "1"}}
+    brush_id = 0
+    solids = []
+    solids.append(brush.copy())
+    solids[-1]['id'] = brush_id
+    brush_id += 1
     for line in file.readlines():
         line = line.rstrip('\n')
         if line.startswith('v'):
             v.append([float(f) for f in line.split(' ')[1:]])
         elif line.startswith('f'):
             line = line.replace('\\', '/').split(' ')[1:]
-            plane = [] # () () ()
+            plane = []
             for point in line[:3]:
                 vertex = v[int(point.split('/')[0]) - 1]
                 plane.append(' '.join([str(x) for x in vertex]))
             plane = reversed(plane)
             side_id += 1
-            solid['sides'].append({
+            solids[-1]['sides'].append({
                 'id': side_id,
                 'plane': '(' + ') ('.join(plane) + ')',
                 'material': 'TOOLS/TOOLSNODRAW',
@@ -30,8 +34,14 @@ def obj_solid(filepath):
 		'rotation': '0',
 		'lightmapscale': '16',
 		'smoothing_groups': '0'})
+        elif line.startswith('o'):
+            solids.append(brush.copy())
+            solids[-1]['id'] = brush_id
+            brush_id += 1
+    if len(solids[0]['sides']) == 0:
+        solids = solids[1:]
     file.close()
-    return solid
+    return solids
 
 if __name__ == "__main__":
     import sys
@@ -39,8 +49,10 @@ if __name__ == "__main__":
     import vmf_tool
     base = vmf_tool.vmf(open('../mapsrc/blank.vmf'))
     for filepath in sys.argv[1:]:
-        ...
-        # outfile = open(f'{filepath[:-4]}.vmf', 'w')
-    hemisphere = obj_solid('hemisphere.obj')
-    base.dict['world']['solid'] = hemisphere
-    base.export(open('hemisphere.vmf', 'w'))
+        base.dict['world']['solids'] = obj_solids(filepath)
+        base.export(open(f'{filepath[:-4]}.vmf', 'w'))
+
+    ##TEST    
+    # hemisphere = obj_solids('hemisphere.obj')
+    # base.dict['world']['solids'] = hemisphere
+    # base.export(open('hemisphere.vmf', 'w'))
