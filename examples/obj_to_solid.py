@@ -1,5 +1,3 @@
-import vector
-
 def obj_solids(filepath): # split by object and group
     """turns faces into sides of a .vmf solid"""
     file = open(filepath)
