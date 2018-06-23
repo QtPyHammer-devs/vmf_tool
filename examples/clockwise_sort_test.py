@@ -6,29 +6,32 @@ import random
 from sdl2 import *
 import time
 import vector
+import random
 
 def clockwise_sort(points, N):
     points = [vector.vec3(*point, 0) for point in points]
     O = sum(points, vector.vec3()) / len(points) # 0, 0, 0
-    centered_points = [point - O for point in points]
+    centered_points = [(point - O).normalise() for point in points]
     NORTH = centered_points[0]
     EAST = NORTH.rotate(*(N * 90))
     SOUTH = -NORTH
     WEST = -EAST
     #0123 match to NESW (CW order)
     thetas = {0: {0: 0, 1: 0, 2: 0, 3: 0}} #it's the base point
-    for i, B in enumerate(centered_points[1:]):
-        #score quadrants to discern location before proximity
-        # HOW TO IDENTIFY POINTS ON CARDINAL LINES?
-        # -- ALL WILL BE 0
+    for i, B in enumerate(centered_points):
+        #score quadrants to discern location
+        # -- ORTHOGONAL == 0 (90 between)
         # -- INSERT BETWEEN CLOSEST POINTS
-        # -- OPPOSING POINTS WILL APPEAR IDENTICAL
-        thetas[i + 1] = {0: vector.dot(NORTH * B, N),
-                         1: vector.dot(EAST * B, N),
-                         2: vector.dot(SOUTH * B, N),
-                         3: vector.dot(WEST * B, N)}
+        # -- codirectional == mag(a) * mag(b) == 1
+        thetas[i] = {0: vector.dot(NORTH, B),
+                         1: vector.dot(EAST, B),
+                         2: vector.dot(SOUTH, B),
+                         3: vector.dot(WEST, B)}
     for index in thetas:
-        print(points[index], thetas[index])
+        print(points[index], ' '.join([f'{key}: {value:.3f}' for key, value in thetas[index].items()]), sep='\n', end='\n\n')
+        
+        # ALL 90
+            
 ##    sorted_points = [points[0]]
 ##    sorted_vectors += [indexed_thetas[key] for key in sorted(indexed_thetas)]
 ##    return sorted_vectors
@@ -47,6 +50,8 @@ def main(width, height):
 
     for i, point in enumerate(points[:]):
         points.insert(2 * i + 1, vector.vec2(point).rotate(45))
+
+    random.shuffle(points)
 
     clockwise_sort(points, vector.vec3(0, 0, 1))
 
@@ -97,6 +102,13 @@ def main(width, height):
         glColor(0, 0, 1)
         glBegin(GL_LINE_STRIP)
         for point in points:
+            glVertex(*point)
+        glEnd()
+
+        glColor(1, 1, 1)
+        glBegin(GL_LINES)
+        for point in [[0, 1], [0.7074, 0.7074], [1, 0], [0, -1]]:
+            glVertex(0, 0)
             glVertex(*point)
         glEnd()
         
