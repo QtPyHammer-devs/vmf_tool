@@ -1,4 +1,5 @@
-﻿import ctypes
+﻿import colorsys
+import ctypes
 import math
 from OpenGL.GL import *
 from OpenGL.GLU import *
@@ -6,32 +7,36 @@ import random
 from sdl2 import *
 import time
 import vector
-import random
 
 def clockwise_sort(points, N):
     points = [vector.vec3(*point, 0) for point in points]
     O = sum(points, vector.vec3()) / len(points) # 0, 0, 0
     centered_points = [(point - O).normalise() for point in points]
-    NORTH = centered_points[0]
-    EAST = NORTH.rotate(*(N * 90))
-    SOUTH = -NORTH
-    WEST = -EAST
-    #0123 match to NESW (CW order)
-    thetas = {0: {0: 0, 1: 0, 2: 0, 3: 0}} #it's the base point
+    north = centered_points[0].normalise()
+    east = north.rotate(*(N * -90))
+    north_east = (north + east).normalise()
+    print(f'NORTH       {north:.3f}')
+    print(f'NORTH-EAST  {north_east:.3f}')
+    print(f'EAST        {east:.3f}\n')
+    
+    thetas = {}
     for i, B in enumerate(centered_points):
-        #score quadrants to discern location
         # -- ORTHOGONAL == 0 (90 between)
         # -- INSERT BETWEEN CLOSEST POINTS
         # -- codirectional == mag(a) * mag(b) == 1
-        thetas[i] = {0: vector.dot(NORTH, B),
-                         1: vector.dot(EAST, B),
-                         2: vector.dot(SOUTH, B),
-                         3: vector.dot(WEST, B)}
-    for index in thetas:
-        print(points[index], ' '.join([f'{key}: {value:.3f}' for key, value in thetas[index].items()]), sep='\n', end='\n\n')
+        thetas[i] = [vector.dot(north, B),
+                     vector.dot(north_east, B),
+                     vector.dot(east, B)]
+        # merge into degrees from NORTH
+        # use as sorting index / function
         
-        # ALL 90
-            
+    for index in thetas:
+        print('[', ' '.join([f'{x:.3f}' for x in points[index]]), ']', sep='')
+        print(' '.join([f'{x:.3f}' for x in thetas[index]]))
+        print()
+
+    return O, north, north_east, east
+        
 ##    sorted_points = [points[0]]
 ##    sorted_vectors += [indexed_thetas[key] for key in sorted(indexed_thetas)]
 ##    return sorted_vectors
@@ -51,9 +56,12 @@ def main(width, height):
     for i, point in enumerate(points[:]):
         points.insert(2 * i + 1, vector.vec2(point).rotate(45))
 
-    random.shuffle(points)
+    points2 = points[1:] # preserve start for easier debug
+    random.shuffle(points2)
+    points = [points[0]] + points2
+    del points2
 
-    clockwise_sort(points, vector.vec3(0, 0, 1))
+    guides = clockwise_sort(points, vector.vec3(0, 0, 1))
 
     mousepos = vector.vec2()
     keys = dict()
@@ -93,26 +101,83 @@ def main(width, height):
         glColor(1, 1, 1)
         glBegin(GL_POINTS)
         glVertex(0, 0)
+        glEnd()
 
-        glColor(1, 0, 1)
-        for point in points:
+        glLineWidth(4)
+        glBegin(GL_LINE_STRIP)
+        for i, point in enumerate(points):
+            glColor(*colorsys.hsv_to_rgb(i / 8, 1, 1))
             glVertex(*point)
         glEnd()
 
-        glColor(0, 0, 1)
-        glBegin(GL_LINE_STRIP)
+        glColor(.75, .75, .75)
+        glBegin(GL_POINTS)
         for point in points:
             glVertex(*point)
         glEnd()
 
         glColor(1, 1, 1)
+        glLineWidth(3)
         glBegin(GL_LINES)
-        for point in [[0, 1], [0.7074, 0.7074], [1, 0], [0, -1]]:
-            glVertex(0, 0)
+        glVertex(*guides[0])
+        glVertex(*guides[1])
+        glEnd()
+        glLineWidth(1)
+        glBegin(GL_LINES)
+        for point in guides[2:]:
+            glVertex(*guides[0])
             glVertex(*point)
         glEnd()
+
+        glPushMatrix()
+        glScale(.125, .125, 1)
+        glTranslate(*(guides[1] * 10))
+        glBegin(GL_LINE_STRIP)
+        glVertex(-1, -1)
+        glVertex(-1, 1)
+        glVertex(1, -1)
+        glVertex(1, 1)
+        glEnd()
+        glPopMatrix()
+
+        glPushMatrix()
+        glScale(.125, .125, 1)
+        glTranslate(*(guides[2] * 10))
+        glBegin(GL_LINE_STRIP)
+        glVertex(-1.5, -1)
+        glVertex(-1.5, 1)
+        glVertex(-.5, -1)
+        glVertex(-.5, 1)
+        glEnd()
+        glBegin(GL_LINES)
+        glVertex(.5, -1)
+        glVertex(.5, 1)
+        glVertex(.5, 1)
+        glVertex(1.5, 1)
+        glVertex(.5, 0)
+        glVertex(1.5, 0)
+        glVertex(.5, -1)
+        glVertex(1.5, -1)
+        glEnd()
+        glPopMatrix()
+
+        glPushMatrix()
+        glScale(.125, .125, 1)
+        glTranslate(*(guides[3] * 10))
+        glBegin(GL_LINES)
+        glVertex(-1, -1)
+        glVertex(-1, 1)
+        glVertex(-1, 1)
+        glVertex(1, 1)
+        glVertex(-1, 0)
+        glVertex(1, 0)
+        glVertex(-1, -1)
+        glVertex(1, -1)
+        glEnd()
+        glPopMatrix()
         
         SDL_GL_SwapWindow(window)
+        
 
 if __name__ == '__main__':
     import getopt
