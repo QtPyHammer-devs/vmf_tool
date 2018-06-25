@@ -12,7 +12,7 @@ def clockwise_sort(points, N):
     points = [vector.vec3(*point, 0) for point in points]
     O = sum(points, vector.vec3()) / len(points) # 0, 0, 0
     centered_points = [(point - O).normalise() for point in points]
-    north = centered_points[0].normalise()
+    north = centered_points[0]
     east = north.rotate(*(N * -90))
     north_east = (north + east).normalise()
     print(f'NORTH       {north:.3f}')
