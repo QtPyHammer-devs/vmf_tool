@@ -8,8 +8,11 @@ Dependency on Numpy would also be phased out / replaced with struct
 Though it would be suggested for clientside vertex transformation
 (moving to C++ is more likely, Python is just very convenient for prototyping, and the language I know the best)
 
+find your path with:
+>>> import OpenGL
+>>> OpenGL.__path__
 FOR CLEARER SHADER DEBUGGING:
->>>change OpenGL\GL\shaders.py line 326:
+| change OpenGL\GL\shaders.py line 326:
 raise RuntimeError(
             """Shader compile failure (%s): %s"""%(
                 result,
@@ -19,5 +22,4 @@ raise RuntimeError(
             shaderType,
         )
 >>>to:
-raise RuntimeError(repr(shaderType) + ' COMPILE FAILURE:\n' + glGetShaderInfoLog(shader).decode())
-#raise RuntimeError(f'{shaderType} COMPILE FAILURE:\n{glGetShaderInfoLog(shader)}')
+raise RuntimeError(f'{shaderType!r} COMPILE FAILURE:\n{glGetShaderInfoLog(shader).decode()}')

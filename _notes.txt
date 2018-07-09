@@ -1,11 +1,3 @@
-vmf_tool_curly should:
-  ignore comments (//)
-  count curlybrackets ({)
-  and use them for scope adjustment
-
-line before { is new scope name
-  store previous line?
-
 isolate invalid solids:
  sdk_gravelpit
  diff against invalid solids removed ver
@@ -24,5 +16,3 @@ create a test exec file
  -- compare both demos
  -- packets to instructions
  -- convert to timeline & keyframes
-
-move dragdrop_brushside & render_vmf to an examples folder

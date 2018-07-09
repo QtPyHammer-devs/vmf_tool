@@ -2,6 +2,7 @@
 #TODO: obj import (each object is a solid)
 #TODO: render each plane of a solid within it's bounding box
 #TODO: 2D viewports
+import camera
 import colorsys
 import ctypes
 import enum
@@ -10,16 +11,16 @@ from OpenGL.GL import * #Installed via pip (PyOpenGl 3.1.0)
 from OpenGL.GLU import * #PyOpenGL-accelerate 3.1.0 requires specific MSVC builds for Cython
 #get precompiled binaries if you can, it's much less work
 #for vertex buffers Numpy is needed (also available through pip)
+import physics
 from sdl2 import * #Installed via pip (PySDL2 0.9.5)
 #requires SDL2.dll (steam has one in it's main directory) & an Environment Variable holding it's location
 import time
+
 import sys
 sys.path.insert(0, '../')
-
-import camera
 import vector
+sys.path.insert(0, '../../')
 import vmf_tool
-import physics
 
 
 class pivot(enum.Enum):
@@ -52,92 +53,91 @@ def draw_aabb(aabb):
     glVertex(aabb.min.x, aabb.min.y, aabb.min.z)
 
 class solid:
+    # __slots__ = ['source', 'colour', 'planes', 'vertices']
+    
     def __init__(self, source):
         """expects a dictionary, strings are also acceptable"""
-        if isinstance(source, str):
-            source = vmf_tool.vmf(source).dict
         if isinstance(source, dict):
-            #use/store as many key-values as posible
-            self.dict = source #retained for accuracy / debug
+            pass
+        elif isinstance(source, str):
+            source = vmf_tool.vmf_to_dict(source)
         else:
             raise RuntimeError(f'Tried to create solid from invalid type: {type(source)}')
-            self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
-            self.planes = []
-            self.vertices = []
-            ### wait how does this work again? ###
-            self.planes = []
-            for side in source['sides']:
-                self.self.planes.append(extract_str_plane(side['plane']))
-            self.planes = [*itertools.chain([s['plane'] for s in source['sides']])]
-            self.source_vertices = [p[1:-1].split(') (') for p in self.planes]
-            self.source_vertices = [map(float, t) for t in self.source_vertices]
-            self.planes = [*map(extract_str_plane, self.planes)]
-            intersects = {}
-            #stores planes & their indices
-            unchecked_planes = {i: plane for i, plane in enumerate(planes)}
-            for i, a_plane in enumerate(self.planes):
-                intersects[i] = []
-                unchecked_planes.pop(i)
-                for j, b_plane in unchecked_planes.items():
-                    if vector.dot(a_plane[0], b_plane[0]) >= 0:
-                        intersects[i].append(j)
-                for key in intersects.keys():
-                    if i in intersects[key]:
-                        intersects[i].append(key)
+        self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
+        ### wait how does this work again? ###
+        self.planes = []
+        for side in source['sides']:
+            self.planes.append(extract_str_plane(side['plane']))
+        self.planes = [*itertools.chain([s['plane'] for s in source['sides']])]
+        self.source_vertices = [p[1:-1].split(') (') for p in self.planes]
+        self.source_vertices = [[*map(float, s.split())] for tri in self.source_vertices for s in tri]
+        self.planes = [*map(extract_str_plane, self.planes)]
+        intersects = {}
+        #stores planes & their indices
+        unchecked_planes = {i: plane for i, plane in enumerate(self.planes)}
+        for i, a_plane in enumerate(self.planes):
+            intersects[i] = []
+            unchecked_planes.pop(i)
+            for j, b_plane in unchecked_planes.items():
+                if vector.dot(a_plane[0], b_plane[0]) >= 0:
+                    intersects[i].append(j)
+            for key in intersects.keys():
+                if i in intersects[key]:
+                    intersects[i].append(key)
 
-            intersections = []
-            others = dict(intersects)
-            for i in intersects.keys():
-                others.pop(i)
-                other_others = dict(others)
-                for j in others.keys():
-                    if j in intersects[i]:
-                        other_others.pop(j)
-                        for k in other_others:
-                            if k in intersects[i] and k in intersects[j]:
-                                intersections.append([i, j, k])
+        intersections = []
+        others = dict(intersects)
+        for i in intersects.keys():
+            others.pop(i)
+            other_others = dict(others)
+            for j in others.keys():
+                if j in intersects[i]:
+                    other_others.pop(j)
+                    for k in other_others:
+                        if k in intersects[i] and k in intersects[j]:
+                            intersections.append([i, j, k])
 
-            face_points = {i: [] for i, p in enumerate(self.planes)}
-            self.faces = face_points #{plane_index: [vertex_index, ...], ...}
-            a = 0
-            for i, j, k in intersections:
-                p0 = planes[i]
-                p1 = planes[j]
-                p2 = planes[k]
-                p0 = p0[0] * p0[1]
-                p1 = p1[0] * p1[1]
-                p2 = p2[0] * p2[1]
-                X = p0.x + p1.x + p2.x
-                Y = p0.y + p1.y + p2.y
-                Z = p0.z + p1.z + p2.z
-                V = vector.vec3(X, Y, Z)
-                self.vertices.append(V)
-                self.faces[i].append(a)
-                self.faces[j].append(a)
-                self.faces[k].append(a)
-                a += 1
-                #check if each one is above another plane in the solid
-                face_points[i].append(V)
-                face_points[j].append(V)
-                face_points[k].append(V)
+        face_points = {i: [] for i, p in enumerate(self.planes)}
+        self.faces = face_points.copy()
+        self.vertices = []
+        a = 0
+        for i, j, k in intersections:
+            p0 = self.planes[i]
+            p1 = self.planes[j]
+            p2 = self.planes[k]
+            p0 = p0[0] * p0[1]
+            p1 = p1[0] * p1[1]
+            p2 = p2[0] * p2[1]
+            X = p0.x + p1.x + p2.x
+            Y = p0.y + p1.y + p2.y
+            Z = p0.z + p1.z + p2.z
+            V = vector.vec3(X, Y, Z)
+            self.vertices.append(V)
+            self.faces[i].append(a)
+            self.faces[j].append(a)
+            self.faces[k].append(a)
+            a += 1
+            # check if each one is above another plane in the solid
+            # to eliminate culled vertices
+            face_points[i].append(V)
+            face_points[j].append(V)
+            face_points[k].append(V)
 
-            for i, points in face_points.items():
-                loop = vector.CW_sort(points, self.planes[i][0])
-                face_points[key] = loop
-                fan = loop_to_fan(loop)
-                all_tris += fan
-                all_solid_polys[-1].append(fan)
+        for plane_index, points in face_points.items():
+##            loop = vector.CW_sort(points, self.planes[i][0])
+            loop = points
+            face_points[plane_index] = loop
+            self.faces[plane_index] = loop_to_fan(loop)
 
-            #utilise verts from source (good for debug)
-            all_x = [v.x for v in self.vertices]
-            all_y = [v.y for v in self.vertices]
-            all_z = [v.z for v in self.vertices]
-            min_x, max_x = min(all_x), max(all_x)
-            min_y, max_y = min(all_y), max(all_y)
-            min_z, max_z = min(all_z), max(all_z)
-            self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
-            self.center = sum(self.vertices, vector.vec3) / len(self.vertices)
-            # self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
+        # utilise verts straight from source (good for debug)
+        all_x = [v.x for v in self.vertices]
+        all_y = [v.y for v in self.vertices]
+        all_z = [v.z for v in self.vertices]
+        min_x, max_x = min(all_x), max(all_x)
+        min_y, max_y = min(all_y), max(all_y)
+        min_z, max_z = min(all_z), max(all_z)
+        self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
+        self.center = sum(self.vertices, vector.vec3()) / len(self.vertices)
         self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
         self.planes = []
         self.vertices = []
@@ -171,24 +171,6 @@ class solid:
                         if k in intersects[i] and k in intersects[j]:
                             intersections.append([i, j, k])
 
-        face_points = {i: [] for i, p in enumerate(self.planes)}
-        for i, j, k in intersections:
-            p0 = planes[i]
-            p1 = planes[j]
-            p2 = planes[k]
-            p0 = p0[0] * p0[1]
-            p1 = p1[0] * p1[1]
-            p2 = p2[0] * p2[1]
-            X = p0.x + p1.x + p2.x
-            Y = p0.y + p1.y + p2.y
-            Z = p0.z + p1.z + p2.z
-            V = vector.vec3(X, Y, Z)
-            #check if each one is above another plane in the solid
-            face_points[i].append(V)
-            face_points[j].append(V)
-            face_points[k].append(V)
-            self.vertices.append(V)
-
         source_verts = []
         for side in source['sides']:
             tri = side['plane'][1:-1].split(') (')
@@ -202,7 +184,6 @@ class solid:
         min_y, max_y = min(all_y), max(all_y)
         min_z, max_z = min(all_z), max(all_z)
         self.vmf_aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
-        print(self.vmf_aabb.min, self.vmf_aabb.max)
 
         all_x = [v.x for v in self.vertices]
         all_y = [v.y for v in self.vertices]
@@ -228,7 +209,7 @@ class solid:
         """returns a dict resembling an imported solid"""
         #foreach face
         #  solid['sides'].append({})
-        #  solid['sides'][-1]['plane'] = '({v1}) ({v2}) ({v3})'
+        #  solid['sides'][-1]['plane'] = '({:.f}) ({:.f}) ({:.f})'.format(*face[:3])
         ...
 
     def rotate(self, pivot_point=pivot.median):
@@ -284,13 +265,13 @@ def main(vmf_path, width=1024, height=576):
     glPointSize(4)
 
     start_import = time.time()
-    v = vmf_tool.vmf(open(vmf_path))
+    imported_vmf = vmf_tool.vmf_to_dict(open(vmf_path))
     # SOLIDS TO CONVEX TRIS
-    all_solids = v.dict['world']['solids'] #multiple brushes
+    all_solids = imported_vmf['world']['solids'] #multiple brushes
     all_solids = [all_solids[40]] #single out individual brush
     #MAP > SHOW SELECTED BRUSH NUMBER in hammer is very useful for this
     #dict.get(key) means you don't need a try for keys that a dict may not have
-##    all_solids = [v.dict['world']['solid']] #single brush
+##    all_solids = [imported_vmf['world']['solid']] #single brush
     #create compares, each key hold the indices of it's intersecting planes
     all_tris = []
     all_solid_polys = []
@@ -358,7 +339,8 @@ def main(vmf_path, width=1024, height=576):
 
         for plane_index, points in face_points.items():
             if points != []:
-                loop = vector.CW_sort(points, planes[plane_index][0])
+##                loop = vector.CW_sort(points, planes[plane_index][0])
+                loop = points
                 face_points[key] = loop
                 fan = loop_to_fan(loop)
                 all_tris += fan
@@ -493,7 +475,11 @@ def main(vmf_path, width=1024, height=576):
         SDL_GL_SwapWindow(window)
 
 if __name__ == '__main__':
-    main('../mapsrc/test2.vmf')
-    import sys
-    for file in sys.argv[1:]:
-        main(file)
+    try:
+        main('../../mapsrc/test2.vmf')
+    except Exception as exc:
+        SDL_Quit()
+        raise exc
+##    import sys
+##    for file in sys.argv[1:]:
+##        main(file)

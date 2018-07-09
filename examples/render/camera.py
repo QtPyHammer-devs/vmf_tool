@@ -2,7 +2,7 @@
 #First-person and Third-person camera need update
 #to receive information based on character motion
 #An AI that interprets inputs into realistic camera motion would be cool
-#Inputs should be typed (Cython)
+#Inputs should be typed
 #
 #FIXED CAMERA with either:
 #no rotation
@@ -14,17 +14,19 @@
 #Scripted Camera Motion?
 #
 #Per Camera FoV?
-
 import math
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from sdl2 import *
+import sys
+sys.path.insert(0, '../')
 from vector import vec2, vec3
 
 sensitivity = 0.25
 
 class freecam:
     """Quake / Source Free Camera"""
+    __slots__ = ['position', 'rotation', 'speed']
     
     def __init__(self, position, rotation, speed=0.75):
         self.position = vec3(position) if position != None else vec3()
@@ -64,6 +66,7 @@ class freecam:
 
 class firstperson:
     """First Person Camera (ALL CLIENTS SHOULD HAVE ONE)"""
+    __slots__ = ['rotation']
     
     def __init__(self, rotation=None):
         self.rotation = vec3(rotation) if rotation != None else vec3()
@@ -85,11 +88,12 @@ class thirdperson:
     #GDC 2014: 50 Game Camera Mistakes
     #http://gdcvault.com/play/1020460/50-Camera
     #https://www.youtube.com/watch?v=C7307qRmlMI
+    __slots__ = ['position', 'rotation', 'radius', 'offset']
     
     def __init__(self, position, rotation, radius, offset=(0, 0)):
-        self.position = vec3(position) if position != None else vec3()
-        self.rotation = vec3(rotation) if rotation != None else vec3()
-        self.radius = radius if radius != None else 0
+        self.position = vec3(position)
+        self.rotation = vec3(rotation)
+        self.radius = radius
         self.offset = vec2(offset)
 
     def update(self):
@@ -107,7 +111,7 @@ class thirdperson:
         glTranslate(0, 0, -self.radius)
         glTranslate(self.offset.x, self.offset.y, 0)
 
-class fixed:
+class fixed: # fly-on-the-wall / security camera
     def __init__(self, position, rotation):
         self.position = vec3(position)
         self.rotation = vec3(rotation)

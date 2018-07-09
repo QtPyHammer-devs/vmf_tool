@@ -153,6 +153,8 @@ def rotate(rows, times):
     #   rows[i] = row(reversed) # flip x
 
 def generate_solid(rows):
+    """create a sensibly placed solid and inject displacement"""
+    # remember .obj faces are rotated CCW
     A = rows[0][0]
     B = rows[0][-1]
     C = rows[-1][-1]
@@ -169,23 +171,22 @@ def generate_solid(rows):
                  "color": "255 0 255", "visgroupshown": "1",
                  "visgroupautoshown": "1"}}
 
-    disp_side = {"id": "1", "material": "DEV/DEV_BLENDMEASURE",
+    side_id = 1
+    disp_side = {"material": "DEV/DEV_BLENDMEASURE",
                  }
-    #disp_side["dispinfo" = {"flags": "0", "subdiv": "0", "elevation": "0"}
-    #disp_side["dispinfo"]["power"]
-    #disp_side["dispinfo"]["startposition"]
-    #disp_side["dispinfo""]
-    #disp_side["plane"] = ABC (scaled flat & snapped to grid)
+    #disp_side["dispinfo"] = str(side_id)
+    #side_id += 1
+    #disp_side["dispinfo"] = {"flags": "0", "subdiv": "0", "elevation": "0"}
+    #disp_side["dispinfo"]["power"] = 2 or 3
+    #disp_side["dispinfo"]["startposition"] = "[X.XX Y.YY Z.ZZ]"
+    #disp_side["plane"] = "(X Y Z) (X Y Z) (X Y Z)"
     #solid["sides"].append(disp_side)
     # get bounds of A, B, C & D
     # snap A, B & C to GRID (2^x integers)
     # take each edge and add dominant_axis * 64 to winding
     # final face is reversed ABC offset by dominant_axis * 64
     # DISPLACEMENT IS ALWAYS SIDE 0
-
-# change starting corners to offset the rotation obj sampling creates
     
-# generate a solid in a sensible place and turn it into displacements
 
 if __name__ == "__main__":
     import sys
@@ -222,15 +223,15 @@ if __name__ == "__main__":
             point = vertices[index] - bary_point
             vector_rows[-1].append(point)
            
-    base_vmf = vmf_tool.vmf(open('../mapsrc/test_disp.vmf'))
+    base_vmf = vmf_tool.vmf_to_dict(open('../mapsrc/test_disp.vmf'))
     dispinfo = vmf_tool.scope(['world', 'solid', 'sides', 0, 'dispinfo']) # solid 0, side 0
-    exec(f"base_vmf.dict{dispinfo}['startposition'] = '[{A.x} {A.y} {A.z}]'")
+    exec(f"base_vmf{dispinfo}['startposition'] = '[{A.x} {A.y} {A.z}]'")
     for i, row in enumerate(vector_rows):
         row_distances = [v.magnitude() for v in row] # 1 per vert
         row_normals = [v / w if w != 0 else vector.vec3() for v, w in zip(row, row_distances)] # 3 per vert
         row_normals = [*map(lambda v: f'{v}', row_normals)]
         row_distances = [*map(str, row_distances)]
-        exec(f"base_vmf.dict{dispinfo}['distances']['row{i}'] = ' '.join(row_distances)")
-        exec(f"base_vmf.dict{dispinfo}['normals']['row{i}'] = ' '.join(row_normals)")
+        exec(f"base_vmf{dispinfo}['distances']['row{i}'] = ' '.join(row_distances)")
+        exec(f"base_vmf{dispinfo}['normals']['row{i}'] = ' '.join(row_normals)")
 
-    base_vmf.export(open('power2_obj.vmf', 'w'))
+    vmf_tool.export(base_vmf, open('power2_obj.vmf', 'w'))
