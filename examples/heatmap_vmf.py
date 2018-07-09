@@ -5,7 +5,7 @@ OR `python3.6 heatmap_vmf.py map_name` in terminal"""
 #TODO: special filtering (e.g. draw lines on long sightlines)
 #TODO: filters for distance and class
 import json
-import urllib
+import urllib.request
 import sys
 sys.path.insert(0, '../')
 import vmf_tool
@@ -18,18 +18,19 @@ def heatmap_vmf(map_name, outdir=''):
         raise RuntimeError("Couldn't load blank.vmf to inject props")
 
     # http://heatmaps.tf/api.html
+    heatmap_site = 'http://heatmaps.tf/data/kills'
     url_tail = '.json?fields='
     url_tail += ', '.join(['killer_class', 'killer_x', 'killer_y', 'killer_z',
                            'victim_class', 'victim_x', 'victim_y', 'victim_z',
                            'team', 'killer_weapon'])
-    try:
-        heatmap = urllib.request.urlopen('map_name' + url_tail)
-        heatmap = json.load(heatmap)
-    except:
-        raise RuntimeError('Encountered an error loading heatmap')
+    # currently enounters 502 Bad Gateway Error
+    heatmap = urllib.request.urlopen(f'{heatmap_site}{map_name}{url_tail}')
+    heatmap = json.load(heatmap)
 
-    k_team = heatmap['fields'].index('team') # k_team or v_team?
-    k_class = heatmap['fields'].index('killer_class')
+    k_team = heatmap['fields'].index('killer_team')
+    # 0 = teamless, 1 = spectator, 2 = red, 3 = blu
+    # 0 = red, 1 = blue, 2 = uber_red, 3 = uber_blue
+    k_class = heatmap['fields'].index('killer_class') # negative = building
     k_wep = heatmap['fields'].index('killer_weapon')
     k_x = heatmap['fields'].index('killer_x')
     k_y = heatmap['fields'].index('killer_y')
@@ -53,7 +54,7 @@ def heatmap_vmf(map_name, outdir=''):
     ENGINEER = 9
 
     class_model = {SCOUT: 'scout.mdl', SOLDIER: 'soldier.mdl', PYRO: 'pyro.mdl',
-                   DEMOMAN: 'demo.mdl', HEAVY: 'heavy.mdl', ENGINEER: 'engy.mdl',
+                   DEMOMAN: 'demo.mdl', HEAVY: 'heavy.mdl', ENGINEER: 'engineer.mdl',
                    MEDIC: 'medic.mdl', SNIPER: 'sniper.mdl', SPY: 'spy.mdl'}
     class_model = {k: f'models/player/{v}' for k, v in class_model.items()}
 
@@ -75,13 +76,15 @@ def heatmap_vmf(map_name, outdir=''):
         killer['id'] = ent_id
         ent_id += 1
         killer['model'] = class_model[kill[k_class]]
+        killer['skin'] = str(kill[k_team])
         if kill[k_class] == ENGINEER:
             if kill[k_wep] == SENTRY:
-                killer['model'] = 'models/buildables/sentry_lvl2.mdl'
+                killer['model'] = 'models/buildables/sentry2.mdl'
+                skin = str(kill[k_team] - 2)
             elif kill[k_wep] == MINI_SENTRY:
-                killer['model'] = 'models/buildables/sentry_lvl1.mdl'
+                killer['model'] = 'models/buildables/sentry1.mdl'
+                skin = str(kill[k_team])
         killer['origin'] = f'{kill[k_x]} {kill[k_y]} {kill[k_z]}'
-        killer['skin'] = str(kill[k_team])
         # visgroup = killers
         props.append(killer)
                 
@@ -96,10 +99,12 @@ def heatmap_vmf(map_name, outdir=''):
 
     base_vmf['entities'] = props
     outdir = outdir.replace('\\', '/').strip()
-    outdir += '/' if not (outdir == '' or outdir.endswith('/'))
+    outdir += '/' if not (outdir == '' or outdir.endswith('/')) else ''
     vmf_tool.export_vmf(base_vmf, open(f'{outdir}{map_name}_heatmap.vmf', 'w'))
 
 if __name__ == "__main__":
+    import sys
+    heatmap_vmf('koth_campania_a11')
     for filepath in sys.argv[1:]:
         filepath = filepath.replace('\\', '/')
         outdir, sep, map_name = filepath.rpartition('/')
