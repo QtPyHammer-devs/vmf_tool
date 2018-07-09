@@ -1,22 +1,14 @@
 ##TODO:
-# python 3.7 (dataclasses)
 # entitiy I/O visualisation (html? html based editor?)
 # .js version for web-editor
 # -- does js have faster import options? (builtins)
-# .vmf diff (utilise difflib) <already in hammer>
-# -- export to vmf
-# --- two visgroups, one for each map
-# --- only diffent solids / entities
-# locate overlapping brushes (especially identical planes)
+# locate overlapping brushes (especially duplicates and potential z-fighting)
 # reduce brushsides (merge all brushes it makes sense to merge)
-
-##VMT_TOOL
-# Test on a .vmt for water or other complex material
-# if it works create a base class, and extend each with specific methods
 
 ##QUESTIONS:
 # can this code be used for .bsp entitiy lumps?
 # -- are bsp entities ever multi-dimensional?
+# can this code be used for .vmt?
 import io
 
 def pluralise(word):
@@ -27,22 +19,33 @@ def pluralise(word):
     else:
         return word + 's'
 
+def singularise(word):
+    if word.endswith('ves'): # self <- selves
+        return word[:-3] + 'f'
+    elif word.endswith('ies'): # body <- bodies
+        return word[:-3] + 'y'
+    elif word.endswith('s'): # horse <- horses
+        return word[:-1]
+    else: # assume word is already singular
+        return word
+
 class scope:
     """Handles a string used to index a multi-dimensional dictionary, correctly reducing nested lists of dictionaries"""
     def __init__(self, strings=[]):
         self.strings = strings
 
     def __len__(self):
-        """ returns depth, ignoring plural indexes"""
+        """Returns depth, ignoring plural indexes"""
         return len(filter(lambda x: isinstance(x, str), self.strings))
 
     def __repr__(self):
+        """Returns scope as a string that can index a deep dictionary"""
         scope_string = ''
         for string in self.strings:
             if isinstance(string, str):
-                scope_string += "['" + string + "']"
+                scope_string += f"['{string}']"
             elif isinstance(string, int):
-                scope_string += "[" + str(string) + "]"
+                scope_string += f"[{string}]"
         return scope_string
 
     def add(self, new):
@@ -58,118 +61,87 @@ class scope:
             except:
                 break
 
-def singularise(word):
-    if word.endswith('ves'): # self <- selves
-        return word[:-3] + 'f'
-    elif word.endswith('ies'): # body <- bodies
-        return word[:-3] + 'y'
-    elif word.endswith('s'): # horse <- horses
-        return word[:-1]
-    else: # assume word is already singular
-        return word
-
-def yield_dict(d, depth=0):
-    keys = d.keys()
-    for key in keys:
-        value = d[key]
+def vmf_lines(vmf_dict, tab_depth=0):
+    tabs = '\t' * tab_depth
+    for key, value in vmf_dict.items():
         if isinstance(value, dict):
-            yield '\t' * depth + key + '\n' + '\t' * depth + '{\n'
-            for output in yield_dict(value, depth + 1):
-                yield output
+            yield f'{tabs}{key}\n{tabs}' + '{\n'
+            for line in vmf_lines(value, tab_depth + 1):
+                yield line
         elif isinstance(value, list):
             key = singularise(key)
             for item in value:
-                yield '\t' * depth + key + '\n' + '\t' * depth + '{\n'
-                for output in yield_dict(item, depth + 1):
-                    yield output
+                yield f'{tabs}{key}\n{tabs}' + '{\n'
+                for line in vmf_lines(item, tab_depth + 1):
+                    yield line
         else:
-            yield '\t' * depth + f'"{key}" "{value}"' + '\n'
-    if depth > 0:
-        yield '\t' * (depth - 1) + '}\n'
+            yield f'{tabs}"{key}" "{value}"' + '\n'
+    if tab_depth > 0:
+        yield '\t' * (tab_depth - 1) + '}\n'
 
-class vmf:
-    def __init__(self, file):
-        if isinstance(file, io.TextIOWrapper):
-            self.filename = file.name
-            file_iter = file.readlines()
-        elif isinstance(file, str):
-            self.filename = None
-            file_iter = file.split('\n')
-        else:
-            raise RuntimeError('Bad Input')
-        self.dict = {}
-        current_scope = scope([])
-        line_no = 1
-        previous_line = ''
-        for line in file_iter:
-            # print(line_no, line, end='')
-            line_no +=1
-            line = line.lstrip('\t')
-            line = line.rstrip('\n')
-            if line == '' or line.startswith('//'):
-                pass
-            elif line =='{':
-                current_keys = eval(f'self.dict{current_scope}.keys()')
-                lines = pluralise(previous_line)
-                if previous_line in current_keys:
-                    # print('*** SHIFT TO PLURAL ***')
-                    # print(f"{current_scope}['{lines}'] = [{current_scope}['{previous_line}']]")
-                    exec(f'self.dict{current_scope}[lines] = [self.dict{current_scope}[previous_line]]')
-                    # print(f'self.dict{current_scope}.pop({previous_line})')
-                    exec(f'self.dict{current_scope}.pop(previous_line)')
-                    # print(f"{current_scope}['{lines}'].append(dict())")
-                    exec(f'self.dict{current_scope}[lines].append(dict())')
-                    current_scope = scope([*current_scope.strings, lines, 1])
-                elif lines in current_keys:
-                    # print('*** PLURAL APPEND ***')
-                    current_scope.add(lines)
-                    # print(f"{current_scope}.append(dict())")
-                    exec(f"self.dict{current_scope}.append(dict())")
-                    current_scope.add(len(eval(f'self.dict{current_scope}')) - 1)
-                else:
-                    current_scope.add(previous_line)
-                    # print(f'self.dict{current_scope} = dict()')
-                    exec(f'self.dict{current_scope} = dict()')
-            elif line == '}': #'}' in line & .count() for less strict formats
-                # print('*** DOWNSHIFTING ***')
-                # print(current_scope, '>>>', end=' ')
-                current_scope.reduce(1)
-                # print(current_scope)
-            elif ' ' in line:
-                # print('*** KEY VALUE UPDATE ***')
-                if '" "' in line:
-                    key, value = line.split('" "')
-                    key = key[1:]
-                    value = value[:-1]
-                else:
-                    key, value = line.split()
-                # print(f"self.dict{current_scope}['{key}'] = '{value}'")
-                exec(f'self.dict{current_scope}[key] = value')
+def vmf_to_dict(file):
+    if isinstance(file, io.TextIOWrapper):
+        file_iter = file.readlines()
+    elif isinstance(file, str):
+        file_iter = file.split('\n')
+    else:
+        raise RuntimeError(f'Cannot construct dictionary from {type(file)}!')
+    vmf_dict = dict()
+    current_scope = scope([])
+    previous_line = ''
+    for line in file_iter:
+        line = line.lstrip('\t')
+        line = line.rstrip('\n')
+        if line == '' or line.startswith('//'):
+            continue # don't modify previous line
+        elif line =='{':
+            current_keys = eval(f'vmf_dict{current_scope}.keys()')
+            lines = pluralise(previous_line)
+            if previous_line in current_keys:
+                exec(f'vmf_dict{current_scope}[lines] = [vmf_dict{current_scope}[previous_line]]')
+                exec(f'vmf_dict{current_scope}.pop(previous_line)')
+                exec(f'vmf_dict{current_scope}[lines].append(dict())')
+                current_scope = scope([*current_scope.strings, lines, 1]) # why isn't this a method?
+            elif lines in current_keys:
+                current_scope.add(lines)
+                exec(f"vmf_dict{current_scope}.append(dict())")
+                current_scope.add(len(eval(f'vmf_dict{current_scope}')) - 1)
             else:
-                pass
-            previous_line = line
+                current_scope.add(previous_line)
+                exec(f'vmf_dict{current_scope} = dict()')
+        elif line == '}':
+            current_scope.reduce(1)
+        elif ' ' in line:
+            if '" "' in line:
+                key, value = line.split('" "')
+                key = key[1:]
+                value = value[:-1]
+            else:
+                key, value = line.split()
+            exec(f'vmf_dict{current_scope}[key] = value')
+        previous_line = line
+    return vmf_dict
 
-    def export(self, outfile):
-        """don't forget to close the file afterwards"""
-        print('Exporting ... ', end='')
-        outfile.write('// This .vmf was generated by vmf_tool.py\n') # hammer discards comments
-        outfile.write(f'// source: {self.filename}\n')
-        for line in yield_dict(self.dict):
-            outfile.write(line)
-        print('Done!')
+def export_vmf(vmf_dict, outfile):
+    """don't forget to close the file afterwards"""
+    print('Exporting ... ', end='')
+    for line in vmf_lines(vmf_dict):
+        outfile.write(line)
+    print('Done!')
 
 if __name__ == "__main__":
-    from time import time
-    times = []
-    for i in range(16):
-        start = time()
-        # v = vmf(open('mapsrc/test.vmf'))
-        # v = vmf(open('mapsrc/test2.vmf'))
-        v = vmf(open('mapsrc/sdk_pl_goldrush.vmf'))
-        time_taken = time() - start
-        print(f'import took {time_taken:.3f} seconds')
-        times.append(time_taken)
-    print(f'average time: {sum(times) / 16:.3f}')
+##    from time import time
+##    times = []
+##    for i in range(16):
+##        start = time()
+##        # v = vmf_to_dict(open('mapsrc/test.vmf'))
+##        # v = vmf_to_dict(open('mapsrc/test2.vmf'))
+##        v = vmf_to_dict(open('mapsrc/sdk_pl_goldrush.vmf'))
+##        time_taken = time() - start
+##        print(f'import took {time_taken:.3f} seconds')
+##        times.append(time_taken)
+##    print(f'average time: {sum(times) / 16:.3f}')
+    pass
 
     # # filter(lambda x: x['material'] != 'TOOLS/TOOLSNODRAW' and x['material'] != 'TOOLS/TOOLSSKYBOX', all_sides)
     # # [x['classname'] for x in v.dict['entities']]
