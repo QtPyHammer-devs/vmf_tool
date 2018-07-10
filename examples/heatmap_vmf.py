@@ -2,32 +2,22 @@
 """Drag and drop a .vmf or .bsp that has been tested on a tf2maps.net server
 this script will attempt to find the appropriate heatmap and generate a vmf.
 OR `python3.6 heatmap_vmf.py map_name` in terminal"""
-#TODO: special filtering (e.g. draw lines on long sightlines)
-#TODO: filters for distance and class
+#TODO: cleaner argument handling when called in console (drag & drop too)
 import json
-import urllib.request
 import sys
 sys.path.insert(0, '../')
 import vmf_tool
 
-def heatmap_vmf(map_name, outdir=''):
+def heatmap_vmf(heatmap):
     """Takes a map name (e.g. koth_test_a1) & creates a file from heatmaps.tf data"""
     try:
+        # once visgroups are understood, allow injection
         base_vmf = vmf_tool.vmf_to_dict(open('../mapsrc/blank.vmf'))
     except IOError:
         raise RuntimeError("Couldn't load blank.vmf to inject props")
 
-    # http://heatmaps.tf/api.html
-    heatmap_site = 'http://heatmaps.tf/data/kills'
-    url_tail = '.json?fields='
-    url_tail += ', '.join(['killer_class', 'killer_x', 'killer_y', 'killer_z',
-                           'victim_class', 'victim_x', 'victim_y', 'victim_z',
-                           'team', 'killer_weapon'])
-    # currently enounters 502 Bad Gateway Error
-    heatmap = urllib.request.urlopen(f'{heatmap_site}{map_name}{url_tail}')
     heatmap = json.load(heatmap)
-
-    k_team = heatmap['fields'].index('killer_team')
+    k_team = heatmap['fields'].index('team')
     # 0 = teamless, 1 = spectator, 2 = red, 3 = blu
     # 0 = red, 1 = blue, 2 = uber_red, 3 = uber_blue
     k_class = heatmap['fields'].index('killer_class') # negative = building
@@ -40,9 +30,11 @@ def heatmap_vmf(map_name, outdir=''):
     v_y = heatmap['fields'].index('victim_y')
     v_z = heatmap['fields'].index('victim_z')
 
+    # killer_weapon
     MINI_SENTRY = -2
     SENTRY = -1
-    WORLD = 0
+    # *_class
+    WORLD = 0 # fall / hazard / non-player
     SCOUT = 1
     SNIPER = 2
     SOLDIER = 3
@@ -60,7 +52,7 @@ def heatmap_vmf(map_name, outdir=''):
 
     # would hammer autofill missing values?
     prop_static = {'classname': 'prop_static',
-                   'angles': '0 0 0', # face partners?
+                   'angles': '0 0 0', # bow to your partner. do-si-do
                    'fademindist': '-1', 'fadescale': '1',
                    'lightmapresolutionx': '32', 'lightmapresolutiony': '32',
                    'editor': {'colour': '255 255 255', 'visgroupshown': '1',
@@ -71,7 +63,7 @@ def heatmap_vmf(map_name, outdir=''):
     ent_id = 0
     for kill in heatmap['kills']:
         if kill[k_class] == WORLD:
-            continue # skip hazards / falls
+            continue # how should environmental deaths be communicated?
         killer = prop_static.copy()
         killer['id'] = ent_id
         ent_id += 1
@@ -79,7 +71,7 @@ def heatmap_vmf(map_name, outdir=''):
         killer['skin'] = str(kill[k_team])
         if kill[k_class] == ENGINEER:
             if kill[k_wep] == SENTRY:
-                killer['model'] = 'models/buildables/sentry2.mdl'
+                killer['model'] = 'models/buildables/sentry3.mdl'
                 skin = str(kill[k_team] - 2)
             elif kill[k_wep] == MINI_SENTRY:
                 killer['model'] = 'models/buildables/sentry1.mdl'
@@ -98,15 +90,65 @@ def heatmap_vmf(map_name, outdir=''):
         props.append(victim)
 
     base_vmf['entities'] = props
-    outdir = outdir.replace('\\', '/').strip()
-    outdir += '/' if not (outdir == '' or outdir.endswith('/')) else ''
-    vmf_tool.export_vmf(base_vmf, open(f'{outdir}{map_name}_heatmap.vmf', 'w'))
+    return base_vmf
 
 if __name__ == "__main__":
+    import urllib.request
+    # http://heatmaps.tf/api.html
+    heatmap_site = 'http://heatmaps.tf/data/kills/'
+    url_tail = '.json?fields=killer_class,killer_x,killer_y,killer_z,' \
+               'victim_class,victim_x,victim_y,victim_z,team,killer_weapon'
+    # check heatmap.tf/data/maps.json for each mapname
+    # download once & log maps that could not be heatmapped
     import sys
-    heatmap_vmf('koth_campania_a11')
+    # ARGPARSE
+    # -folder [FOLDER]: get heatmap for every .bsp or .vmf in folder (once each)
+    # -filter class [CLASS]: show deaths and kills for CLASS only
+    # -filter killer_class [CLASS]: show pairs where CLASS killed
+    ## CLASS includes WORLD, HAZARD, TRAIN, FALL, SAWBLADE, DROWN etc.
+    # -filter victim_class [CLASS]: show pairs where CLASS died
+    # -filter range [RANGE]: only kills >RANGE (<RANGE if negative)
+    # -filter remove [FILTER]: remove a filter (same representaion as previous)
+    ## -filter can be called multiple times (CAN ARGPARSE DO THIS?)
+    ## -filter changes state, and applies only to maps after it in *args
+    ## -filter is 3 consecutive args, unless it is 'remove' (which is 4)
+    # -limit [LIMIT]: do not write more than LIMIT pairs
+    # -only-killers
+    # -only-victims
+    # -filter area [MINS] [MAXS]: only pairs >MINS & <MAXS
+    ## [MINS] = (X Y Z), [MAXS] = (X Y Z)
+    #
+    # IMPLEMENTATION
+    # filters = {class: {killer: [], victim: []}, area: [], range: []}
+    # for arg in args:
+    #     if '-filter' in arg:
+    #         ,,,
+    #         filters[filter_type].append(filter_args)
+    #     else: # heatmap
+    #         ,,,
+    #         heatmap_vmf(heatmap, filters)
+    #
+    # INSIDE HEATMAP_VMF()
+    ## convert filters to lambdas?
+    # for kill in heatmap['kills']:
+    #    if all([... for f in filters]): # any() for each key
+    ## "-filter killer_class" all(any(k[k_class] in [...], k[v_class] in [...]))
+    ## "-filter class" k[k_class] in [...] or k[v_class] in [...]
+    ## for '-filter class' only CLASS is shown (not paired killer / victim)
+    #        props.append(...)
+    sys.argv.append('koth_campania_a11') # TEST
     for filepath in sys.argv[1:]:
         filepath = filepath.replace('\\', '/')
-        outdir, sep, map_name = filepath.rpartition('/')
-        map_name = map_name.rpartition('.')[0]
-        heatmap_vmf(map_name, outdir)
+        if '/' in filepath:
+            outdir, sep, map_name = filepath.rpartition('/')
+        else:
+            map_name = filepath
+            outdir = ''
+        if map_name.endswith('.json'): # user downloaded .json
+            heatmap = open(filepath) # needs fields requested in url_tail
+        else: # file named same as map OR map name in terminal
+            if '.' in map_name:
+                map_name = map_name.rpartition('.')[0]
+            heatmap = urllib.request.urlopen(f'{heatmap_site}{map_name}{url_tail}')
+        heatmap = heatmap_vmf(heatmap) # CONVERSION
+        vmf_tool.export_vmf(heatmap, open(f'{outdir}{map_name}_heatmap.vmf', 'w'))
