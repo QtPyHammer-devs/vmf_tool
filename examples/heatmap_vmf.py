@@ -7,6 +7,9 @@ import sys
 sys.path.insert(0, '../')
 import vmf_tool
 
+# TODO: replace dicts with namespaces where it can make code cleaner
+# TODO: allow filtering to work at the URL level for faster imports
+
 # http://heatmaps.tf/api.html
 heatmap_site = 'http://heatmaps.tf/data/kills/'
 url_tail = '.json?fields=killer_class,killer_x,killer_y,killer_z,victim_class,victim_x,victim_y,victim_z,team,killer_weapon'
@@ -17,6 +20,38 @@ schema.items_game.items['-1'] = vmf_tool.namespace_from({'name': 'Sentrygun'})
 schema.items_game.items['-2'] = vmf_tool.namespace_from({'name': 'Mini-Sentry'})
 print(' Done!')
 
+ENGINEER = 9
+DEMOMAN = 4
+HEAVY = 6
+MINI_SENTRY = -2
+MEDIC = 5
+PYRO = 7
+SCOUT = 1
+SENTRY = -1
+SNIPER = 2
+SOLDIER = 3
+SPY = 8
+WORLD = 0
+
+# CUSTOMKILL
+customkill = ['Headshot', 'Backstab', 'Burning', 'Wrench Fix', 'Minigun',
+              'Suicide', 'Hadouken', 'Burning Flare', 'High Noon', 'Grand Slam',
+              'Friendly Penetration', 'Unfriendly Penetration', 'Fencing',
+              'Head Penetration', 'Huntsman Taunt', 'Telefrag', 'Burning Arrow',
+              '?Flyingburn?', 'Pumpkin Bomb', 'Decapitation', 'Grenade Taunt',
+              'Baseball', 'Demoknight Stampede', 'Sword Taunt', 'Airburst Stickybomb',
+              'Scottish Resistance', 'Pickaxe', 'Direct Hit', 'HHH Decapitation',
+              'Stickytrap', '?Aegis?', '?Flare Explosion?', 'Thwomp', 'Plasma',
+              'Charged Plasma', 'Plasma Gib', 'Practice Sticky', 'Eyeball Rocket',
+              'Headshot Decapitation', 'Pyro Armageddon', 'Flare Pellet', 'Cleaver',
+              'Crit Cleaver', 'Sapper', 'Bomb Head', 'Merasmus Grenade', 'Zap',
+              'Decapitated by a Wizard', ' ! D O N K ! ', 'BrÜtal']
+
+# DEATH_FLAGS (BITFIELD)
+death_flags = {1: 'Domination', 2: 'Assist Domintion', 4: 'Revenge', 8: 'Assist Revenge',
+               16: 'First Blood', 32: 'Dead Ringer', 64: 'Interrupted', 128: 'Gibbed',
+               256: 'Purgatory'}
+
 def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=True, limit=None):
     """Takes a map name (e.g. cp_5days_a2) & creates a file from heatmaps.tf data"""
     try:
@@ -24,10 +59,12 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
     except IOError:
         raise RuntimeError(f"Couldn't load {into_vmf} to inject props")
     # check to see if file already has visgroups
-    base_vmf['visgroups'] = {}
-    base_vmf['visgroups']['visgroups'] = [{'name': 'Heatmap', 'visgroupid': '64', 'color': '255 0 255',
-                                           'visgroups': [{'name': 'Victims', 'visgroupid': '65', 'color': '0 255 255'},
-                                                         {'name': 'Killers', 'visgroupid': '66', 'color': '255 255 0'}]}]
+    base_vmf['visgroups'] = {} # visgroup system is super messy
+    base_vmf['visgroups']['visgroups'] = [{'name': 'Heatmap', 'visgroupid': '60',
+                                           'visgroups': [{'name': 'Killers', 'visgroupid': '61'},
+                                                         {'name': 'Victims', 'visgroupid': '62'},
+                                                         {'name': 'Killer Class', 'visgroupid': '80'},
+                                                         {'name': 'Victim Class', 'visgroupid': '90'}]}]
 
     heatmap = json.load(heatmap)
     k_team = heatmap['fields'].index('team') # 0 = teamless, 1 = spectator, 2 = red, 3 = blu
@@ -41,30 +78,29 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
     v_y = heatmap['fields'].index('victim_y')
     v_z = heatmap['fields'].index('victim_z')
 
-    ENGINEER = 9
-    DEMOMAN = 4
-    HEAVY = 6
-    MINI_SENTRY = -2
-    MEDIC = 5
-    PYRO = 7
-    SCOUT = 1
-    SENTRY = -1
-    SNIPER = 2
-    SOLDIER = 3
-    SPY = 8
-    WORLD = 0
-
-    class_name = {SCOUT: 'scout', SOLDIER: 'soldier', PYRO: 'pyro',
-                   DEMOMAN: 'demo', HEAVY: 'heavy', ENGINEER: 'engineer',
-                   MEDIC: 'medic', SNIPER: 'sniper', SPY: 'spy',
-                  WORLD: 'Za Warudo'}
+    class_name = {SCOUT: 'Scout', SOLDIER: 'Soldier', PYRO: 'Pyro',
+                   DEMOMAN: 'Demo', HEAVY: 'Heavy', ENGINEER: 'Engineer',
+                   MEDIC: 'Medic', SNIPER: 'Sniper', SPY: 'Spy',
+                  WORLD: 'World'}
     class_model = {k: f'models/player/{v}.mdl' for k, v in class_name.items()}
+
+    # ABSOLUTELY HIDEOUS
+    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'] = [] # Killer Class
+    base_vmf['visgroups']['visgroups'][0]['visgroups'][3]['visgroups'] = [] # Victim Class
     for i, tf_class in class_name.items():
-        base_vmf['visgroups']['visgroups'][0]['visgroups'].append({'name': f'{tf_class.capitalize()} Kills', 'visgroupid': str(66 + i)})
+        base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'].append({'name': f'{tf_class}', 'visgroupid': str(80 + i)})
+        base_vmf['visgroups']['visgroups'][0]['visgroups'][3]['visgroups'].append({'name': f'{tf_class}', 'visgroupid': str(90 + i)})
+    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'].pop(-1)
+    base_vmf['visgroups']['visgroups'][0]['visgroups'][3]['visgroups'].pop(-1)
 
-    # Hammer automatically fills in missing values
-    prop_static = {'classname': 'prop_static', 'editor': {}}
+    #There is no downside to adding visgroups and not using them
+    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'][5]['visgroups'] = [{'name': 'Sentry', 'visgroupid': '100'}, {'name': 'Mini-Sentry', 'visgroupid': '101'}] # 5 Should Be Engineer
+    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'][7]['visgroups'] = [{'name': 'Headshot', 'visgroupid': '102'}] # 7 Should Be Sniper
+    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'][8]['visgroups'] = [{'name': 'Backstab', 'visgroupid': '103'}] # 8 Should Be Spy
 
+    prop_dynamic = {'classname': 'prop_dynamic', 'editor': {}, 'solid': '0'}
+    # not solid
+    # render mode?
     props = []
     try:
         ent_id = max([e['id'] for e in base_vmf['entities']])
@@ -79,16 +115,23 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
             kw_name = f'{schema.items_game.items[kw_id].name} ({kw_id})'
         except:
             kw_name = f'UNKNOWN ({kw_id})'
+
+        visgroups = [str(80 + kill[k_class]), str(90 + kill[v_class])]
+        if kill[k_wep] == SENTRY:
+            visgroups[0] = '100'
+        elif kill[k_wep] == MINI_SENTRY:
+            visgroups[0] = '101'
+        if kill[k_class] == WORLD:
+            visgroups = visgroups[1:]
         
-        victim = copy.deepcopy(prop_static)
+        victim = copy.deepcopy(prop_dynamic)
         victim['id'] = ent_id
-##        victim['editor']['logicalpos'] = f'[0 {1000 + ent_id}]'
         ent_id += 1
         victim['model'] = class_model[kill[v_class]]
         victim['origin'] = f'{kill[v_x]} {kill[v_y]} {kill[v_z]}'
         victim['skin'] = '0' if kill[k_team] - 2 == 1 else '1'
         victim['editor']['comments'] = f'Killed by {class_name[kill[k_class]]} @ {kill[v_x]} {kill[v_y]} {kill[v_z]} with {kw_name}'
-        victim['editor']['visgroupid'] = '"\n\t\t"visgroupid" "'.join(['64', '65', str(66 + kill[k_class])])
+        victim['editor']['visgroupid'] = '"\n\t\t"visgroupid" "'.join([*visgroups, '62'])
         if kill[k_class] == WORLD:
             victim['editor']['comments'] = f'Killed by WORLD'
             victim['angles'] = f'180 0 0'
@@ -102,9 +145,8 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
             break
 
         if kill[k_class] != WORLD:
-            killer = copy.deepcopy(prop_static)
+            killer = copy.deepcopy(prop_dynamic)
             killer['id'] = ent_id
-##            killer['editor']['logicalpos'] = f'[0 {1000 + ent_id}]'
             ent_id += 1
             killer['model'] = class_model[kill[k_class]]
             killer['skin'] = str(kill[k_team]) # 0 = red, 1 = blue, 2 = uber_red, 3 = uber_blue
@@ -117,27 +159,31 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
                     skin = str(kill[k_team])
             killer['origin'] = f'{kill[k_x]} {kill[k_y]} {kill[k_z]}'
             killer['editor']['comments'] = f'Killed {class_name[kill[v_class]]} @ {kill[k_x]} {kill[k_y]} {kill[k_z]} with {kw_name}'
-            killer['editor']['visgroupid'] = '"\n\t\t"visgroupid" "'.join(['64', '66', str(66 + kill[k_class])])
+            killer['editor']['visgroupid'] = '"\n\t\t"visgroupid" "'.join([*visgroups, '61'])
             props.append(killer)
             if ent_id >= limit:
                 break
-
-    base_vmf['entities'] = props
+            
+    # need to append / create when injecting
+    # this includes adding a singular entity to the initial list
+    # should make namespace methods for this
+    base_vmf['entities'] = props 
     return base_vmf
 
 
-def get_heatmap(filepath, filter=lambda k: True):
+def get_heatmap(filepath):
         """Foolproof heatmap generator"""
         filepath = filepath.replace('\\', '/')
         if '/' in filepath:
             outdir, sep, map_name = filepath.rpartition('/')
             outdir = outdir + sep
         else:
-            map_name, period, filetype = filepath.rpartition('.')
-            if map_name == '':
-                map_name = filetype
-                filetype = ''
+            map_name = filepath
             outdir = ''
+        map_name, period, filetype = map_name.rpartition('.')
+        if map_name == '':
+            map_name = filetype
+            filetype = ''
         if filetype == 'json': # user downloaded .json
             heatmap = open(filepath) # may lack fields converter needs (see url_tail)
         else: # file named same as map OR map name
@@ -216,8 +262,10 @@ if __name__ == "__main__":
 ##    # filter_weapons = any([??? for w in filter_weapons])
     #TEMPORARY DRAG & DROP
     import sys
+    sys.argv.append('F:/Code/javascript/koth_campania_af_complete.json')
     for filepath in sys.argv[1:]:
         print(filepath)
         get_heatmap(filepath)
+    input('Press Enter to Quit')
     
     

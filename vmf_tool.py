@@ -1,6 +1,8 @@
 """Can unpack a variety of Valve text-formats including .vmt & the Client Schema"""
 #TODO: spot keys that appear more than once and pluralise
 ## e.g. "visgroupid" "7"\n"visgroupid" "8" = {'visgroupid': ['7', '8']}
+#TODO: Functions for handling the horrible visgroup system
+import io
 import textwrap
 
 def pluralise(word):
