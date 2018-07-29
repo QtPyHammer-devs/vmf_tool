@@ -1,0 +1,16 @@
+>>> for v in schema2.items_game.kill_eater_score_types.values(): # Contract Tracked Stats
+	print(v.type_name[...])
+
+Kills
+[...]
+PowerupBottlesUsed # ??? what's a PowerupBottle
+[...]
+>>> [x for x in ids if 'bottle' in x.lower()]
+['TF_WEAPON_BOTTLE', 'Upgradeable TF_WEAPON_BOTTLE']
+>>> [x for x in ids if 'canteen' in x.lower()]
+['Default Power Up Canteen (MvM)', 'Power Up Canteen (MvM)', 'Battery Canteens', 'Kritz Or Treat Canteen']
+>>> schema2.items_game.items[ids['Power Up Canteen (MvM)']]
+Namespace([name, first_sale_date, prefab, attributes])
+>>> canteen = _
+>>> canteen.prefab
+'powerup_bottle' # Sooo, MvM Contracts?

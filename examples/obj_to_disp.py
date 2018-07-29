@@ -101,7 +101,7 @@ def get_paralell_street(start, adjacent_street, neighbourhood): # no user filter
 
 
 def quads_to_rows(vertices, indices):
-    neighbourhood = {i: set() for i, x in enumerate(vertices)} #a map that tells you who your neighbours are
+    neighbourhood = {x: set() for x in range(len(vertices))} #a map that tells you who your neighbours are
     for i, index in enumerate(indices[::4]):
         i *= 4
         quad = [index, indices[i + 1], indices[i + 2], indices[i + 3]]
