@@ -1,5 +1,6 @@
 """Can unpack a variety of Valve text-formats including .vmt & the Client Schema"""
-import io
+#TODO: spot keys that appear more than once and pluralise
+## e.g. "visgroupid" "7"\n"visgroupid" "8" = {'visgroupid': ['7', '8']}
 import textwrap
 
 def pluralise(word):
@@ -151,7 +152,7 @@ class namespace:
         return self.__dict__.values()
 
 
-def namespace_from(nested_dict): # doesn't seem to work on flat dicts
+def namespace_from(nested_dict): # should be namespace.__init__ and take only dict
     out = namespace()
     for key, value in nested_dict.items():
         if isinstance(value, dict):
@@ -193,7 +194,7 @@ def lines_from(_dict, tab_depth=0): # wrap with quotes
 def export(_dict, outfile):
     """don't forget to close the file afterwards"""
     print('Exporting ... ', end='')
-    for line in vmf_lines(_dict):
+    for line in lines_from(_dict):
         outfile.write(line)
     print('Done!')
 
