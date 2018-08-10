@@ -56,14 +56,14 @@ class scope:
                 break
 
 
-def dict_from(file): # rename
-    if isinstance(file, io.TextIOWrapper):
-        file_iter = file.readlines()
-    elif isinstance(file, str):
-        file_iter = file.split('\n')
+def namespace_from(text_file):
+    if isinstance(text_file, io.TextIOWrapper):
+        file_iter = text_file.readlines()
+    elif isinstance(text_file, str):
+        file_iter = text_file.split('\n')
     else:
         raise RuntimeError(f'Cannot construct dictionary from {type(file)}!')
-    _dict = namespace()
+    _dict = namespace({})
     current_scope = scope([])
     previous_line = ''
     for line_no, line in enumerate(file_iter):
@@ -81,15 +81,15 @@ def dict_from(file): # rename
                 if previous_line in current_keys: # NEW plural
                     exec(f'_dict{current_scope}[lines] = [_dict{current_scope}[previous_line]]')
                     exec(f'_dict{current_scope}.pop(previous_line)')
-                    exec(f'_dict{current_scope}[lines].append(namespace())')
+                    exec(f'_dict{current_scope}[lines].append(namespace(dict()))')
                     current_scope = scope([*current_scope.strings, lines, 1]) # why isn't this a method?
                 elif lines in current_keys: # APPEND plural
                     current_scope.add(lines)
-                    exec(f"_dict{current_scope}.append(namespace())")
+                    exec(f"_dict{current_scope}.append(namespace(dict()))")
                     current_scope.add(len(eval(f'_dict{current_scope}')) - 1)
                 else: # NEW singular
                     current_scope.add(previous_line)
-                    exec(f'_dict{current_scope} = namespace()')
+                    exec(f'_dict{current_scope} = namespace(dict())')
             elif line == '}': # END declaration
                 current_scope.reduce(1)
             elif '" "' in line: # KEY VALUE
@@ -106,7 +106,16 @@ def dict_from(file): # rename
     return _dict
     
 class namespace:
-    """exposed __dict__ for dotted access\nuse only strings as keys"""
+    """Nested Dicts -> Nested Objects"""
+    def __init__(self, nested_dict):
+        for key, value in nested_dict.items():
+            if isinstance(value, dict):
+                self[key] = namespace(value)
+            elif isinstance(value, list):
+                self[key] = [namespace(i) for i in value]
+            else:
+                self[key] = value
+    
     def __setitem__(self, index, value):
         setattr(self, str(index), value)
     
@@ -128,17 +137,19 @@ class namespace:
             indices = [0]
         self[max(indices) + 1] = value
 
-    def index(self, key):
-        """search tree for name"""
-        for k, v in self.items():
-            if k == key:
-                key = str(key)
-                if str.isdigit(key[0]) or ' ' in str(key): # is there a builtin check?
-                    return f'[{self.__name__}]'
-                return f'.{self.__name__}'
-            elif isinstance(attr_value, namespace):
-                for sub_attr in attr_value:
-                    return f'.{self.__name__}{sub_attr.index(name)}'
+##    def index(self, key):
+##        """search tree for name"""
+##        for k, v in self.items():
+##            if k == key:
+##                key = str(key)
+##                if (key is invalid name): # builtins?
+##                    return f'[{self.__name__}]'
+##                return f'.{self.__name__}'
+##            elif isinstance(v, namespace):
+##                for sub_v in v:
+##                    try:
+##                        return f'.{self.__name__}{sub_v.index(key)}'
+##                    except: pass
 
     def items(self):
         return self.__dict__.items()
@@ -147,25 +158,13 @@ class namespace:
         return self.__dict__.keys()
 
     def pop(self, key):
-        """remove value at given key / index"""
         return self.__dict__.pop(str(key))
     
     def values(self):
         return self.__dict__.values()
 
 
-def namespace_from(nested_dict): # should be namespace.__init__ and take only dict
-    out = namespace()
-    for key, value in nested_dict.items():
-        if isinstance(value, dict):
-            setattr(out, key, namespace_from(value))
-        elif isinstance(value, list):
-            setattr(out, key, [namespace_from(i) for i in value])
-        else:
-            setattr(out, key, value)
-    return out
-
-def nested_dict_from(_namespace):
+def dict_from(_namespace):
     out = dict()
     for key, value in _namespace.__dict__.items():
         if isinstance(value, namespace):
@@ -175,7 +174,7 @@ def nested_dict_from(_namespace):
         else:
             out[key] = value
 
-def lines_from(_dict, tab_depth=0): # wrap with quotes
+def lines_from(_dict, tab_depth=0):
     tabs = '\t' * tab_depth
     for key, value in _dict.items():
         if isinstance(value, dict) or isinstance(value, namespace):
@@ -199,6 +198,26 @@ def export(_dict, outfile):
     for line in lines_from(_dict):
         outfile.write(line)
     print('Done!')
+
+def add_visgroups(vmf, visgroup_dict):
+    'TOP: [INNER1, INNER2: []]'
+    if 'visgroups' not in vmf:
+        vmf['visgroups'] = []
+    if 'visgroup' in vmf.visgroups:
+        vmf.visgroups['visgroups'] = [visgroup]
+    if 'visgroups' not in vmf.visgroups:
+        vmf.visgroups['visgroups'] = []
+
+    visgroups = vmf.visgroups.visgroups
+    max_id = max([v.visgroupid for v in visgroups])
+
+    def recurse(iterable):
+        ...
+    
+    for v in visgroup_dict:
+        max_id += 1
+        ...
+        
 
 if __name__ == "__main__":
 ##    from time import time

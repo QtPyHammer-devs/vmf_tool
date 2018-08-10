@@ -103,7 +103,10 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
     # render mode?
     props = []
     try:
+        # also need to catch singular
+        # really need methods for handling the singular/plural system and visgroups
         ent_id = max([e['id'] for e in base_vmf['entities']])
+        props = base_vmf['entities']
     except:
         ent_id = 0
         
@@ -163,10 +166,7 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
             props.append(killer)
             if ent_id >= limit:
                 break
-            
-    # need to append / create when injecting
-    # this includes adding a singular entity to the initial list
-    # should make namespace methods for this
+
     base_vmf['entities'] = props 
     return base_vmf
 
