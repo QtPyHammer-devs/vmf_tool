@@ -34,7 +34,7 @@ for file in sys.argv[1:]:
     buffer = ''
     for line in vmf_tool.lines_from(vmf):
         buffer += line
-        if len(buffer) > 100:
+        if len(buffer) > 8000:
             new_vmf.write(buffer)
             buffer = ''
     new_vmf.write(buffer)
