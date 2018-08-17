@@ -12,7 +12,7 @@
 #TODO: forest fill (prop family, density, falloff side, sort by tricount)
 #TODO: blend modulate preview
 #TODO: transparency & alpha sorting
-#TODO: render modes (wireframe, flat, )
+#TODO: render modes (wireframe, flat, textured etc)
 #TODO: settings that can be changed without restarting & SETTINGS FILES
 #TODO: vpk browser
 #TODO: script I/O (MvM Previews, including BOSS & TANK sizes)
@@ -42,6 +42,15 @@ import vector
 sys.path.insert(0, '../../')
 import vmf_tool
 
+
+def planes_intersect_at(p0, p1, p2):
+    p0 = p0[0] * p0[1]
+    p1 = p1[0] * p1[1]
+    p2 = p2[0] * p2[1]
+    X = p0.x + p1.x + p2.x
+    Y = p0.y + p1.y + p2.y
+    Z = p0.z + p1.z + p2.z
+    return vector.vec3(X, Y, Z)
 
 class pivot(enum.Enum): # for selections of more than one brush / entity
     """like blender pivot point"""
@@ -73,27 +82,21 @@ def draw_aabb(aabb):
     glVertex(aabb.min.x, aabb.min.y, aabb.min.z)
 
 class solid:
-    # __slots__ = ['source', 'colour', 'planes', 'vertices']
-    
+    # __slots__ = ['source', 'colour', 'planes', 'vertices', 'faces']
+
     def __init__(self, source):
         """expects a dictionary, strings are also acceptable"""
-        if isinstance(source, dict):
+        if isinstance(source, dict) or isinstance(source, vmf_tool.namespace):
             pass
         elif isinstance(source, str):
-            source = vmf_tool.vmf_to_dict(source)
+            source = vmf_tool.namespace_from(source)
         else:
             raise RuntimeError(f'Tried to create solid from invalid type: {type(source)}')
-        self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
-        ### wait how does this work again? ###
-        self.planes = []
-        for side in source['sides']:
-            self.planes.append(extract_str_plane(side['plane']))
-        self.planes = [*itertools.chain([s['plane'] for s in source['sides']])]
-        self.source_vertices = [p[1:-1].split(') (') for p in self.planes]
+        self.colour = tuple(int(x) / 255 for x in source.editor.color.split())
+        self.planes = [extract_str_plane(s.plane) for s in source.sides]
+        self.source_vertices = [p[1:-1].split(') (') for p in [s.plane for s in source.sides]]
         self.source_vertices = [[*map(float, s.split())] for tri in self.source_vertices for s in tri]
-        self.planes = [*map(extract_str_plane, self.planes)]
         intersects = {}
-        #stores planes & their indices
         unchecked_planes = {i: plane for i, plane in enumerate(self.planes)}
         for i, a_plane in enumerate(self.planes):
             intersects[i] = []
@@ -117,39 +120,13 @@ class solid:
                         if k in intersects[i] and k in intersects[j]:
                             intersections.append([i, j, k])
 
-        face_points = {i: [] for i, p in enumerate(self.planes)}
-        self.faces = face_points.copy()
+        self.faces = {i: [] for i, p in enumerate(self.planes)} #sort Clockwise
         self.vertices = []
-        a = 0
-        for i, j, k in intersections:
-            p0 = self.planes[i]
-            p1 = self.planes[j]
-            p2 = self.planes[k]
-            p0 = p0[0] * p0[1]
-            p1 = p1[0] * p1[1]
-            p2 = p2[0] * p2[1]
-            X = p0.x + p1.x + p2.x
-            Y = p0.y + p1.y + p2.y
-            Z = p0.z + p1.z + p2.z
-            V = vector.vec3(X, Y, Z)
-            self.vertices.append(V)
-            self.faces[i].append(a)
-            self.faces[j].append(a)
-            self.faces[k].append(a)
-            a += 1
-            # check if each one is above another plane in the solid
-            # to eliminate culled vertices
-            face_points[i].append(V)
-            face_points[j].append(V)
-            face_points[k].append(V)
+        for i, ps in enumerate(intersections):
+            for plane_index in ps:
+                self.faces[plane_index].append(i)
+            self.vertices.append(planes_intersect_at(*[self.planes[p] for p in ps]))
 
-        for plane_index, points in face_points.items():
-##            loop = vector.CW_sort(points, self.planes[i][0])
-            loop = points
-            face_points[plane_index] = loop
-            self.faces[plane_index] = loop_to_fan(loop)
-
-        # utilise verts straight from source (good for debug)
         all_x = [v.x for v in self.vertices]
         all_y = [v.y for v in self.vertices]
         all_z = [v.z for v in self.vertices]
@@ -157,108 +134,58 @@ class solid:
         min_y, max_y = min(all_y), max(all_y)
         min_z, max_z = min(all_z), max(all_z)
         self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
-        self.center = sum(self.vertices, vector.vec3()) / len(self.vertices)
-        self.colour = tuple(map(lambda x: int(x) / 255, source['editor']['color'].split()))
-        self.planes = []
-        self.vertices = []
-        ### wait how does this work again? ###
-        for side in source['sides']:
-            self.planes.append(extract_str_plane(side['plane']))
-        planes = itertools.chain([s['plane'] for s in source['sides']])
-        planes = [*map(extract_str_plane, planes)]
-        intersects = {}
-        #stores planes & their indices
-        unchecked_planes = {i: plane for i, plane in enumerate(self.planes)}
-        for i, a_plane in enumerate(self.planes):
-            intersects[i] = []
-            unchecked_planes.pop(i)
-            for j, b_plane in unchecked_planes.items():
-                if vector.dot(a_plane[0], b_plane[0]) >= 0:
-                    intersects[i].append(j)
-            for key in intersects.keys():
-                if i in intersects[key]:
-                    intersects[i].append(key)
 
-        intersections = []
-        others = dict(intersects)
-        for i in intersects.keys():
-            others.pop(i)
-            other_others = dict(others)
-            for j in others.keys():
-                if j in intersects[i]:
-                    other_others.pop(j)
-                    for k in other_others:
-                        if k in intersects[i] and k in intersects[j]:
-                            intersections.append([i, j, k])
-
-        source_verts = []
-        for side in source['sides']:
-            tri = side['plane'][1:-1].split(') (')
-            tri = [list(map(float, v.split())) for v in tri]
-            source_verts.append(tri)
-        source_verts = [*itertools.chain(*source_verts)]
-        all_x = [v[0] for v in source_verts]
-        all_y = [v[1] for v in source_verts]
-        all_z = [v[2] for v in source_verts]
+        all_x = [v[0] for v in self.source_vertices]
+        all_y = [v[1] for v in self.source_vertices]
+        all_z = [v[2] for v in self.source_vertices]
         min_x, max_x = min(all_x), max(all_x)
         min_y, max_y = min(all_y), max(all_y)
         min_z, max_z = min(all_z), max(all_z)
         self.vmf_aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
 
-        all_x = [v.x for v in self.vertices]
-        all_y = [v.y for v in self.vertices]
-        all_z = [v.z for v in self.vertices]
-        min_x, max_x = min(all_x), max(all_x)
-        min_y, max_y = min(all_y), max(all_y)
-        min_z, max_z = min(all_z), max(all_z)
-        self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
-        self.center = sum(self.vertices, vector.vec3()) / len(self.vertices)
-        # self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
-        # this should have been assembled and indexed earlier
-
     def export(self):
         """returns a dict resembling an imported solid"""
-        #foreach face
-        #  solid['sides'].append({})
-        #  solid['sides'][-1]['plane'] = '({:.f}) ({:.f}) ({:.f})'.format(*face[:3])
+        # foreach face
+        #   solid.sides.append(vmf_tool.namespace(...))
+        #   solid.sides.[-1].plane = '({:.f}) ({:.f}) ({:.f})'.format(*face[:3])
         ...
-        
+
     def flip(self, center, axis):
         """axis is a vector"""
-        #flip along axis
-        #maintain outward facing plane normals
-        #invert all plane normals along axis, flip along axis
+        # flip along axis
+        # maintain outward facing plane normals
+        # invert all plane normals along axis, flip along axis
         ...
 
     def rotate(self, pivot_point=None):
         # if pivot_point == None:
         #     pivot_point = self.center
-        #foreach plane
-        #  rotate normal
-        #  recalculate distance
-        #foreach vertex
-        #  translate -(self.center - origin)
-        #  rotate
-        #  translate back
+        # foreach plane
+        #     rotate normal
+        #     recalculate distance
+        # foreach vertex
+        #     translate -(self.center - origin)
+        #     rotate
+        #     translate back
         ...
 
     def translate(self, offset):
         """offset is a vector"""
-        #for plane in self.planes
-        #    plane.distance += dot(plane.normal, offset)
-        #for vertex in self.vertices
-        #    vertex += offset
+        # for plane in self.planes
+        #     plane.distance += dot(plane.normal, offset)
+        # for vertex in self.vertices
+        #     vertex += offset
         ...
 
     def make_valid(self):
         """take all faces and ensure their verts lie on shared planes"""
-        #ideally split if not convex
-        #can be very expensive to correct
-        #just recalc planes
-        #if any verts not on correct planes, throw warning
-        #check if solid is open
+        # ideally split if not convex
+        # can be very expensive to correct
+        # just recalculate planes
+        # if any verts not on correct planes, throw warning
+        # check if solid is open
         ...
-        
+
 def extract_str_plane(string):
     points = string[1:-1].split(') (')
     points = [x.split() for x in points]
@@ -287,20 +214,20 @@ def main(vmf_path, width=1024, height=576):
     glPointSize(4)
 
     start_import = time.time()
-    imported_vmf = vmf_tool.vmf_to_dict(open(vmf_path))
+    imported_vmf = vmf_tool.namespace_from(open(vmf_path))
     # SOLIDS TO CONVEX TRIS
-    all_solids = imported_vmf['world']['solids'] #multiple brushes
+    all_solids = imported_vmf.world.solids #multiple brushes
     all_solids = [all_solids[40]] #single out individual brush
-    #MAP > SHOW SELECTED BRUSH NUMBER in hammer is very useful for this
-    #dict.get(key) means you don't need a try for keys that a dict may not have
-##    all_solids = [imported_vmf['world']['solid']] #single brush
-    #create compares, each key hold the indices of it's intersecting planes
+    # MAP > SHOW SELECTED BRUSH NUMBER in hammer is very useful for this
+    # dict.get(key) means you don't need a try for keys that a dict may not have
+##    all_solids = [imported_vmf.world.solid] #single brush
+    # create compares, each key hold the indices of it's intersecting planes
     all_tris = []
     all_solid_polys = []
     for s in all_solids:
-        colour = tuple(map(lambda x: int(x) / 255, s['editor']['color'].split()))
+        colour = tuple(map(lambda x: int(x) / 255, s.editor.color.split()))
         all_solid_polys.append([colour])
-        planes = itertools.chain([x['plane'] for x in s['sides']])
+        planes = itertools.chain([x.plane for x in s.sides])
         planes = [*map(extract_str_plane, planes)]
         intersects = {}
         unchecked_planes = {i: plane for i, plane in enumerate(planes)}
@@ -328,18 +255,9 @@ def main(vmf_path, width=1024, height=576):
 
         face_points = {i: [] for i, p in enumerate(planes)}
         for i, j, k in intersections:
-            p0 = planes[i]
-            p1 = planes[j]
-            p2 = planes[k]
-            p0 = p0[0] * p0[1]
-            p1 = p1[0] * p1[1]
-            p2 = p2[0] * p2[1]
-            X = p0.x + p1.x + p2.x
-            Y = p0.y + p1.y + p2.y
-            Z = p0.z + p1.z + p2.z
-            V = vector.vec3(X, Y, Z)
+            V = planes_intersect_at(planes[i], planes[j], planes[k])
             all_ok = True
-            print(f'*** {V:.2f} ***')
+            print(f'*** intersection of {i}, {j} & {k} ***\n*** {V:.2f} ***')
             #is point outside another plane?
             for a, plane in enumerate(planes):
                 if a not in (i, j, k):
@@ -444,7 +362,7 @@ def main(vmf_path, width=1024, height=576):
                 for vertex in loop:
                     glVertex(*vertex)
         glEnd()
-        
+
         glLineWidth(1)
         glBegin(GL_LINES)
         glColor(1, 0, 0)

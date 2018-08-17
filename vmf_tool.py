@@ -105,7 +105,7 @@ def namespace_from(text_file):
             raise RuntimeError(f'error on line {line_no:04d}:\n{line}\n{previous_line}')
     return _dict
     
-class namespace:
+class namespace: # use static methods to avoid namespace collision
     """Nested Dicts -> Nested Objects"""
     def __init__(self, nested_dict):
         for key, value in nested_dict.items():
