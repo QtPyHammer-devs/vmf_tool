@@ -1,7 +1,26 @@
+#TODO: !!! render each plane of a solid within it's bounding box !!!
+#TODO: custom format with .vmf export
+#TODO: auto-saves & auto-version numbering (Alpha, Beta, sub-version & RC buttons)
+#TODO: compilepal button
 #TODO: export to obj (one object per solid)
 #TODO: obj import (each object is a solid)
-#TODO: render each plane of a solid within it's bounding box
 #TODO: 2D viewports
+#TODO: materials
+#TODO: LIVE skybox & sun preview
+#TODO: displacement face copying
+#TODO: render effects preview
+#TODO: forest fill (prop family, density, falloff side, sort by tricount)
+#TODO: blend modulate preview
+#TODO: transparency & alpha sorting
+#TODO: render modes (wireframe, flat, )
+#TODO: settings that can be changed without restarting & SETTINGS FILES
+#TODO: vpk browser
+#TODO: script I/O (MvM Previews, including BOSS & TANK sizes)
+#TODO: .nav viewer & editor, auto-generated I/O tracking
+#TODO: output to addoutput and vice-versa (show AddOutputs in entity Outputs)
+#TODO: brushes to .smd/.dmx (live model editing with Save-as)
+#TODO: motion previews
+#TODO: rulers (jump curves, rocket tracks)
 import camera
 import colorsys
 import ctypes
@@ -13,7 +32,8 @@ from OpenGL.GLU import * #PyOpenGL-accelerate 3.1.0 requires specific MSVC build
 #for vertex buffers Numpy is needed (also available through pip)
 import physics
 from sdl2 import * #Installed via pip (PySDL2 0.9.5)
-#requires SDL2.dll (steam has one in it's main directory) & an Environment Variable holding it's location
+#requires SDL2.dll (steam has a copy in it's main directory)
+#and an Environment Variable (PYSLD2_DLL_PATH) holding it's location
 import time
 
 import sys
@@ -23,7 +43,7 @@ sys.path.insert(0, '../../')
 import vmf_tool
 
 
-class pivot(enum.Enum):
+class pivot(enum.Enum): # for selections of more than one brush / entity
     """like blender pivot point"""
     median = 0
     active = 1
@@ -196,23 +216,23 @@ class solid:
         # self.faces = {plane: [edgeloop]} #indexed clockwise edge loops
         # this should have been assembled and indexed earlier
 
-    def make_valid(self):
-        """take all faces and ensure their verts lie on shared planes"""
-        #ideally split if not convex
-        #can be very expensive to correct
-        #just recalc planes
-        #if any verts not on correct planes, throw warning
-        #check if solid is open
-        ...
-
     def export(self):
         """returns a dict resembling an imported solid"""
         #foreach face
         #  solid['sides'].append({})
         #  solid['sides'][-1]['plane'] = '({:.f}) ({:.f}) ({:.f})'.format(*face[:3])
         ...
+        
+    def flip(self, center, axis):
+        """axis is a vector"""
+        #flip along axis
+        #maintain outward facing plane normals
+        #invert all plane normals along axis, flip along axis
+        ...
 
-    def rotate(self, pivot_point=pivot.median):
+    def rotate(self, pivot_point=None):
+        # if pivot_point == None:
+        #     pivot_point = self.center
         #foreach plane
         #  rotate normal
         #  recalculate distance
@@ -220,13 +240,6 @@ class solid:
         #  translate -(self.center - origin)
         #  rotate
         #  translate back
-        ...
-
-    def flip(self, center, axis):
-        """axis is a vector"""
-        #flip along axis
-        #maintain outward facing plane normals
-        #invert all plane normals along axis, flip along axis
         ...
 
     def translate(self, offset):
@@ -237,6 +250,15 @@ class solid:
         #    vertex += offset
         ...
 
+    def make_valid(self):
+        """take all faces and ensure their verts lie on shared planes"""
+        #ideally split if not convex
+        #can be very expensive to correct
+        #just recalc planes
+        #if any verts not on correct planes, throw warning
+        #check if solid is open
+        ...
+        
 def extract_str_plane(string):
     points = string[1:-1].split(') (')
     points = [x.split() for x in points]
