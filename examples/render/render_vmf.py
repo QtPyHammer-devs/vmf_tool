@@ -2,6 +2,7 @@
 #TODO: custom format with .vmf export
 #TODO: auto-saves & auto-version numbering (Alpha, Beta, sub-version & RC buttons)
 #TODO: compilepal button
+#TODO: preview cubemaps (load from .bsp copy in /maps)
 #TODO: export to obj (one object per solid)
 #TODO: obj import (each object is a solid)
 #TODO: 2D viewports
@@ -18,8 +19,10 @@
 #TODO: script I/O (MvM Previews, including BOSS & TANK sizes)
 #TODO: .nav viewer & editor, auto-generated I/O tracking
 #TODO: output to addoutput and vice-versa (show AddOutputs in entity Outputs)
-#TODO: brushes to .smd/.dmx (live model editing with Save-as)
-#TODO: motion previews
+#TODO: brush group to .smd/.dmx (live model editing with Save-as)
+#------- fast .vmt translation & .qc generation
+#------- compile .mdl on next map compile
+#TODO: motion previews (animation tools for brush objects)
 #TODO: rulers (jump curves, rocket tracks)
 import camera
 import colorsys
