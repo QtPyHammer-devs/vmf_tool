@@ -1,0 +1,1 @@
+If you click on the logos listed at https://wiki.teamfortress.com/wiki/List_of_companies, each image has a source, which is it's name & location in the hammer texture browser

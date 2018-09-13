@@ -10,6 +10,8 @@ def pluralise(word):
         return word[:-1] + 'ves'
     elif word.endswith('y'): # body -> bodies
         return word[:-1] + 'ies'
+    elif word.endswith('ex'): # vertex -> vertices
+        return word[:-2] + 'ices'
     else: # horse -> horses
         return word + 's'
 
@@ -20,6 +22,8 @@ def singularise(word):
         return word[:-3] + 'y'
     elif word.endswith('s'): # horse <- horses
         return word[:-1]
+    elif word.endswith('ices'): # vertex <- vertices
+        return word[:-4] + 'ex'
     else: # assume word is already singular
         return word
 

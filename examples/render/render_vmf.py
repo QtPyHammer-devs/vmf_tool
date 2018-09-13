@@ -5,10 +5,14 @@
 #TODO: preview cubemaps (load from .bsp copy in /maps)
 #TODO: export to obj (one object per solid)
 #TODO: obj import (each object is a solid)
-#TODO: 2D viewports
+#TODO: multiple 2D viewports
+#------- totally customisable:
+#------- position, size, ortho/perspective etc. (like blender)
+#TODO: less hassle overlay copy & paste
 #TODO: materials
 #TODO: LIVE skybox & sun preview
-#TODO: displacement face copying
+#TODO: lighting preview
+#TODO: displacement face copying (fusing brushes)
 #TODO: render effects preview
 #TODO: forest fill (prop family, density, falloff side, sort by tricount)
 #TODO: blend modulate preview
@@ -24,6 +28,21 @@
 #------- compile .mdl on next map compile
 #TODO: motion previews (animation tools for brush objects)
 #TODO: rulers (jump curves, rocket tracks)
+#TODO: material proxy previews (animated .vmts)
+#TODO: Twister-esque quick displacements / arches
+#------- quick sattelite dish
+#------- quick spiral staircase
+#TODO: stairs with slope & step fields, like a blender modifier
+#TODO: mirror team (flip or rotate)
+#TODO: sightline spotter
+#------- point out the longest and narrowest sightlines to a given point
+#------- hardest to spot (lighting or size) should be prioritised
+#TODO: quick gamemode (Ctrl+N Menu)
+#TODO: better I/O autocomplete, copy & addoutput tools
+#------- typed activator (check flags etc. to know what will/may trigger)
+#TODO: displacement rounding with preserve edges optional
+#TODO: lightmode (blender-like colour scheming with presets)
+#TODO: displacement sculpt curve tools
 import camera
 import colorsys
 import ctypes
@@ -36,7 +55,7 @@ from OpenGL.GLU import * #PyOpenGL-accelerate 3.1.0 requires specific MSVC build
 import physics
 from sdl2 import * #Installed via pip (PySDL2 0.9.5)
 #requires SDL2.dll (steam has a copy in it's main directory)
-#and an Environment Variable (PYSLD2_DLL_PATH) holding it's location
+#and an Environment Variable (PYSDL2_DLL_PATH) holding it's location
 import time
 
 import sys
