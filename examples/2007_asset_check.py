@@ -45,7 +45,6 @@ def check_props(vmf, allowed_props):
 if __name__ == "__main__":
     prop_list = open('2007_props.csv').read().split(',')
     material_list = open('2007_materials.csv').read().split(',') # should include tool textures
-    sys.argv.append('F:/Modding/tf2 maps/cp_loss.vmf')
     for vmf_file in sys.argv[1:]:
         vmf = vmf_tool.namespace_from(open(vmf_file))
         check_materials(vmf, material_list)
