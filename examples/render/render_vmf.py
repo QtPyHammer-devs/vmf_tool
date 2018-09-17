@@ -43,6 +43,7 @@
 #TODO: displacement rounding with preserve edges optional
 #TODO: lightmode (blender-like colour scheming with presets)
 #TODO: displacement sculpt curve tools
+#------- guide frames for displacements (NURBS OR point cloud)
 import camera
 import colorsys
 import ctypes
@@ -104,20 +105,22 @@ def draw_aabb(aabb):
     glVertex(aabb.min.x, aabb.min.y, aabb.min.z)
 
 class solid:
-    # __slots__ = ['source', 'colour', 'planes', 'vertices', 'faces']
+    # __slots__ = ['string_solid', 'colour', 'planes', 'vertices', 'faces']
 
-    def __init__(self, source):
-        """expects a dictionary, strings are also acceptable"""
-        if isinstance(source, dict) or isinstance(source, vmf_tool.namespace):
+    def __init__(self, string_solid):
+        """Initialise from string, nested dict or namespace"""
+        if isinstance(string_solid, vmf_tool.namespace):
             pass
-        elif isinstance(source, str):
-            source = vmf_tool.namespace_from(source)
+        elif isinstance(string_solid, dict):
+            source = vmf_tool.namespace(string_solid)
+        elif isinstance(string_solid, str):
+            source = vmf_tool.namespace_from(string_solid)
         else:
-            raise RuntimeError(f'Tried to create solid from invalid type: {type(source)}')
-        self.colour = tuple(int(x) / 255 for x in source.editor.color.split())
-        self.planes = [extract_str_plane(s.plane) for s in source.sides]
-        self.source_vertices = [p[1:-1].split(') (') for p in [s.plane for s in source.sides]]
-        self.source_vertices = [[*map(float, s.split())] for tri in self.source_vertices for s in tri]
+            raise RuntimeError(f'Tried to create solid from invalid type: {type(string_solid)}')
+        self.colour = tuple(int(x) / 255 for x in string_solid.editor.color.split())
+        self.string_triangles = [triangle_of(s) for s in string_solid.sides]
+        self.string_vertices = list(itertools.chain(*self.string_triangles))
+        self.planes = [plane_of(*t) for t in self.string_triangles]
         intersects = {}
         unchecked_planes = {i: plane for i, plane in enumerate(self.planes)}
         for i, a_plane in enumerate(self.planes):
@@ -142,7 +145,7 @@ class solid:
                         if k in intersects[i] and k in intersects[j]:
                             intersections.append([i, j, k])
 
-        self.faces = {i: [] for i, p in enumerate(self.planes)} #sort Clockwise
+        self.faces = {i: [] for i, p in enumerate(self.planes)} # sort CLOCKWISE
         self.vertices = []
         for i, ps in enumerate(intersections):
             for plane_index in ps:
@@ -157,13 +160,34 @@ class solid:
         min_z, max_z = min(all_z), max(all_z)
         self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
 
-        all_x = [v[0] for v in self.source_vertices]
-        all_y = [v[1] for v in self.source_vertices]
-        all_z = [v[2] for v in self.source_vertices]
+        all_x = [v[0] for v in self.string_vertices]
+        all_y = [v[1] for v in self.string_vertices]
+        all_z = [v[2] for v in self.string_vertices]
         min_x, max_x = min(all_x), max(all_x)
         min_y, max_y = min(all_y), max(all_y)
         min_z, max_z = min(all_z), max(all_z)
-        self.vmf_aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
+        self.string_aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
+
+    def draw(self):
+        glColor(1, 1, 1)
+        glBegin(GL_POINTS)
+        for vertex in self.string_vertices:
+            glVertex(*vertex)
+        glEnd()
+
+        glPolygonMode(GL_FRONT, GL_LINE)
+        glBegin(GL_QUADS)
+        draw_aabb(self.string_aabb)
+        glEnd()
+        glPolygonMode(GL_FRONT, GL_FILL)
+
+        glColor(*self.colour)
+        glBegin(GL_TRIANGLES)
+        for triangle in self.string_triangles:
+            for vertex in triangle:
+                glVertex(*vertex)
+        glEnd()
+        
 
     def export(self):
         """returns a dict resembling an imported solid"""
@@ -203,25 +227,32 @@ class solid:
         """take all faces and ensure their verts lie on shared planes"""
         # ideally split if not convex
         # can be very expensive to correct
-        # just recalculate planes
+        # recalculate planes from tris if possible
         # if any verts not on correct planes, throw warning
-        # check if solid is open
+        # check if solid has holes / is inverted
         ...
 
-def extract_str_plane(string):
-    points = string[1:-1].split(') (')
-    points = [x.split() for x in points]
-    points = [[*map(float, x)] for x in points]
-    A, B, C = map(vector.vec3, points)
+def triangle_of(side):
+    triangle = [[float(i) for i in xyz.split()] for xyz in side.plane[1:-1].split(') (')]
+    return tuple(map(vector.vec3, triangle))
+
+def plane_of(A, B, C):
+    """returns plane the triangle defined by A, B & C lies on"""
     normal = ((A - B) * (C - B)).normalise()
     return (normal, vector.dot(normal, A))
 
-def loop_to_fan(verts):
-    out = verts[:3]
-    verts = verts[3:]
-    for vert in verts:
-        out += [out[0], out[-1], vert]
+def loop_fan(vertices):
+    out = vertices[:3]
+    for vertex in vertices[3:]:
+        out += [out[0], out[-1], vertex]
     return out
+
+def loop_fan_indices(vertices, start_index):
+    "polygon to triangle fan (indices only) by Exactol"
+    indices = []
+    for i in range(1, len(vertices) - 1):
+        indices += [startIndex, startIndex + i, startIndex + i + 1]
+    return indices
 
 def main(vmf_path, width=1024, height=576):
     SDL_Init(SDL_INIT_VIDEO)
@@ -237,82 +268,9 @@ def main(vmf_path, width=1024, height=576):
 
     start_import = time.time()
     imported_vmf = vmf_tool.namespace_from(open(vmf_path))
-    # SOLIDS TO CONVEX TRIS
-    all_solids = imported_vmf.world.solids #multiple brushes
-    all_solids = [all_solids[40]] #single out individual brush
-    # MAP > SHOW SELECTED BRUSH NUMBER in hammer is very useful for this
-    # dict.get(key) means you don't need a try for keys that a dict may not have
-##    all_solids = [imported_vmf.world.solid] #single brush
-    # create compares, each key hold the indices of it's intersecting planes
-    all_tris = []
-    all_solid_polys = []
-    for s in all_solids:
-        colour = tuple(map(lambda x: int(x) / 255, s.editor.color.split()))
-        all_solid_polys.append([colour])
-        planes = itertools.chain([x.plane for x in s.sides])
-        planes = [*map(extract_str_plane, planes)]
-        intersects = {}
-        unchecked_planes = {i: plane for i, plane in enumerate(planes)}
-        for i, a_plane in enumerate(planes):
-            intersects[i] = []
-            unchecked_planes.pop(i)
-            for j, b_plane in unchecked_planes.items():
-                if vector.dot(a_plane[0], b_plane[0]) >= 0:
-                    intersects[i].append(j)
-            for key in intersects.keys():
-                if i in intersects[key]:
-                    intersects[i].append(key)
 
-        intersections = []
-        others = dict(intersects)
-        for i in intersects.keys():
-            others.pop(i)
-            other_others = dict(others)
-            for j in others.keys():
-                if j in intersects[i]:
-                    other_others.pop(j)
-                    for k in other_others:
-                        if k in intersects[i] and k in intersects[j]:
-                            intersections.append([i, j, k])
-
-        face_points = {i: [] for i, p in enumerate(planes)}
-        for i, j, k in intersections:
-            V = planes_intersect_at(planes[i], planes[j], planes[k])
-            all_ok = True
-            print(f'*** intersection of {i}, {j} & {k} ***\n*** {V:.2f} ***')
-            #is point outside another plane?
-            for a, plane in enumerate(planes):
-                if a not in (i, j, k):
-                    V_dot, V_dot_max = vector.dot(V, plane[0]), plane[1]
-                    if V_dot_max < 0:
-                        #facing in
-                        if V_dot < V_dot_max:
-                            all_ok = False
-                            print(f'{V_dot:.2f} < {V_dot_max:.2f} on axis {plane[0]:.3f}')
-                            break
-                    elif V_dot > V_dot_max:
-                        all_ok = False
-                        print(f'{V_dot:.2f} > {V_dot_max:.2f} on axis {plane[0]:.3f}')
-                        break
-            if all_ok:
-                face_points[i].append(V)
-                face_points[j].append(V)
-                face_points[k].append(V)
-
-        for plane_index, points in face_points.items():
-            if points != []:
-##                loop = vector.CW_sort(points, planes[plane_index][0])
-                loop = points
-                face_points[key] = loop
-                fan = loop_to_fan(loop)
-                all_tris += fan
-                all_solid_polys[-1].append(fan)
-
-        #fans should be made via indices
-        #each face's verts must unique if format holds more than position data
-        #BUILD TO BE MUTABLE
     global solid
-    s40 = solid(all_solids[0])
+    s40 = solid(imported_vmf.world.solids[40])
     print('import took {:.2f} seconds'.format(time.time() - start_import))
 
     CAMERA = camera.freecam(None, None, 128)
@@ -368,23 +326,7 @@ def main(vmf_path, width=1024, height=576):
         glPushMatrix()
         CAMERA.set()
 
-        for solid in all_solid_polys:
-            # glColor(*solid[0])
-            for loop, p_index in zip(solid[1:], face_points.keys()):
-                glColor(*[i / 2 + .5 for i in planes[p_index][0]])
-                glBegin(GL_POLYGON)
-                for vertex in loop:
-                    glVertex(*vertex)
-                glEnd()
-
-        glColor(1, 1, 1)
-        glBegin(GL_POINTS)
-        for solid in all_solid_polys:
-            for loop in solid[1:]:
-                for vertex in loop:
-                    glVertex(*vertex)
-        glEnd()
-
+        # CENTER MARKER
         glLineWidth(1)
         glBegin(GL_LINES)
         glColor(1, 0, 0)
@@ -398,12 +340,14 @@ def main(vmf_path, width=1024, height=576):
         glVertex(0, 0, 128)
         glEnd()
 
+        # RAYCAST
         glColor(1, .25, 0)
         glBegin(GL_LINES)
         for point in rendered_ray:
             glVertex(*point)
         glEnd()
 
+        # GRID
         glLineWidth(2)
         glBegin(GL_LINES)
         for x in range(-16, 17):
@@ -426,12 +370,8 @@ def main(vmf_path, width=1024, height=576):
             glVertex(1024, y, 0)
         glEnd()
 
-        glColor(1, 0, 1)
-        glPolygonMode(GL_FRONT, GL_LINE)
-        glBegin(GL_QUADS)
-        draw_aabb(s40.vmf_aabb)
-        glEnd()
-        glPolygonMode(GL_FRONT, GL_FILL)
+        # SOLID OBJECT
+        s40.draw()
 
         glPopMatrix()
         SDL_GL_SwapWindow(window)
