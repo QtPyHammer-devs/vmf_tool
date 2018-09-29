@@ -255,32 +255,53 @@ def lerp(a, b, t):
 def angle_between(a, b):
     dot(a, b) / (a.magnitude() * b.magnitude())
 
-def CW_sort(vectors, normal): # doesn't do it's job properly
-    """vec3 only, for vec2 use a normal of (0, 0, 1)\nfor CCW, invert the normal"""
-    O = sum(vectors, vec3()) / len(vectors)
-    centered_vectors = [v - O for v in vectors]
-    A = centered_vectors[0]
-    indexed_thetas = {dot(A * B, normal): vectors[i+1] for i, B in enumerate(vectors[1:])}
-    sorted_vectors = [vectors[0]]
-    sorted_vectors += [indexed_thetas[key] for key in sorted(indexed_thetas)]
-    return sorted_vectors
+def sort_clockwise(vec3s, normal):
+    C = sum(vec3s, vec3()) / len(vec3s)
+    score = lambda A, B: dot(normal, (A - C) * (B - C))
+    left = []
+    right = []
+    for index, point in enumerate(vec3s[1:]):
+        (left if score(vec3s[0], point) >= 0 else right).append(index + 1)
+    
+    proximity = dict() # number of points between self and start
+    for i, p in enumerate(vec3s[1:]):
+        i += 1
+        if i in left:
+            proximity[i] = len(right)
+            for j in left:
+                if score(p, vec3s[j]) >= 0:
+                    proximity[i] += 1
+        else:
+            proximity[i] = 0
+            for j in right:
+                if score(p, vec3s[j]) >= 0:
+                    proximity[i] += 1
+        
+    sorted_vec3s = [vec3s[0]] + [vec3s[i] for i in sorted(proximity.keys(), key=lambda k: proximity[k])]
+    return sorted_vec3s
 
-# EXTREMELY BORKED
-##def CW_sort_index(vectors, indices, normal): #Doesn't handle >180 degrees (or direction of rotation)
-##    """expects all vector to be vec3, returns sorted indices"""
-##    indexed_vectors = [vectors[index] for index in indices]
-##    A = indexed_vectors[0] * N
-##    print(indexed_vectors[1:], indices[1:], sep='\n')
-##    #dot gives angle between two vectors but not direction
-##    #is also innacurate for angles >= 180 degrees
-##    #MAP NEAREST POINTS TO CREATE A NEIGHBOUR MAP?!
-##    #DISCERN NEGATIVE ROTATION FROM POSITIVE!
-##    theta_map = [(dot(A * B, normal): index) for B, index in zip(indexed_vectors[1:], indices[1:])]
-##    #sorted() uses a function to assign list items a scalar value and sorts these
-##    #theta_map just sorts by closest (rotationally) to first point
-##    sorted_indices = [indices[0]]
-##    sorted_indices += ...
-##    return sorted_indices
+##def sort_clockwise_indices(vec3s, indices, normal):
+##    C = sum(vec3s, vec3()) / len(vec3s)
+##    score = lambda A, B: dot(normal, (A - C) * (B - C))
+##    left = []
+##    right = []
+##    for index, point in enumerate(vec3s[1:]):
+##        (left if score(vec3s[0], point) >= 0 else right).append(index + 1)
+##    
+##    proximity = dict() # number of points between self and start
+##    for i, p in enumerate(vec3s[1:]):
+##        i += 1
+##        if i in left:
+##            proximity[i] = len(right)
+##            for j in left:
+##                if score(p, vec3s[j]) >= 0:
+##                    proximity[i] += 1
+##        else:
+##            proximity[i] = 0
+##            for j in right:
+##                if score(p, vec3s[j]) >= 0:
+##                    proximity[i] += 1
+##    return [0] + [vec3s[0]] + sorted(proximity.keys(), key=lambda k: proximity[k])
     
 
 if __name__ == "__main__":

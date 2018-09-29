@@ -15,9 +15,9 @@ heatmap_site = 'http://heatmaps.tf/data/kills/'
 url_tail = '.json?fields=killer_class,killer_x,killer_y,killer_z,victim_class,victim_x,victim_y,victim_z,team,killer_weapon'
 
 print('Loading Client Schema...', end='')
-schema = vmf_tool.dict_from(open('tf2_client_schema')) # Load Weapon IDs from Client Schema
-schema.items_game.items['-1'] = vmf_tool.namespace_from({'name': 'Sentrygun'})
-schema.items_game.items['-2'] = vmf_tool.namespace_from({'name': 'Mini-Sentry'})
+schema = vmf_tool.namespace_from(open('tf2_client_schema')) # Load Weapon IDs from Client Schema
+schema.items_game.items['-1'] = vmf_tool.namespace({'name': 'Sentrygun'})
+schema.items_game.items['-2'] = vmf_tool.namespace({'name': 'Mini-Sentry'})
 print(' Done!')
 
 ENGINEER = 9
@@ -55,16 +55,9 @@ death_flags = {1: 'Domination', 2: 'Assist Domintion', 4: 'Revenge', 8: 'Assist 
 def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=True, limit=None):
     """Takes a map name (e.g. cp_5days_a2) & creates a file from heatmaps.tf data"""
     try:
-        base_vmf = vmf_tool.dict_from(open(into_vmf))
+        base_vmf = vmf_tool.namespace_from(open(into_vmf))
     except IOError:
         raise RuntimeError(f"Couldn't load {into_vmf} to inject props")
-    # check to see if file already has visgroups
-    base_vmf['visgroups'] = {} # visgroup system is super messy
-    base_vmf['visgroups']['visgroups'] = [{'name': 'Heatmap', 'visgroupid': '60',
-                                           'visgroups': [{'name': 'Killers', 'visgroupid': '61'},
-                                                         {'name': 'Victims', 'visgroupid': '62'},
-                                                         {'name': 'Killer Class', 'visgroupid': '80'},
-                                                         {'name': 'Victim Class', 'visgroupid': '90'}]}]
 
     heatmap = json.load(heatmap)
     k_team = heatmap['fields'].index('team') # 0 = teamless, 1 = spectator, 2 = red, 3 = blu
@@ -84,29 +77,33 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
                   WORLD: 'World'}
     class_model = {k: f'models/player/{v}.mdl' for k, v in class_name.items()}
 
+    if not hasattr(base_vmf, 'visgroups'):
+        base_vmf['visgroups'] = vmf_tool.namespace({'visgroups': []})
+    base_vmf.visgroups.visgroups += [vmf_tool.namespace({'name': 'Heatmap', 'visgroupid': '60',
+                                        'visgroups': [vmf_tool.namespace({'name': 'Killers', 'visgroupid': '61'}),
+                                                      vmf_tool.namespace({'name': 'Victims', 'visgroupid': '62'}),
+                                                      vmf_tool.namespace({'name': 'Killer Class', 'visgroupid': '80'}),
+                                                      vmf_tool.namespace({'name': 'Victim Class', 'visgroupid': '90'})]})]
+    
     # ABSOLUTELY HIDEOUS
-    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'] = [] # Killer Class
-    base_vmf['visgroups']['visgroups'][0]['visgroups'][3]['visgroups'] = [] # Victim Class
+    base_vmf.visgroups.visgroups[0].visgroups[2].visgroups = [] # Killer Class
+    base_vmf.visgroups.visgroups[0].visgroups[3].visgroups = [] # Victim Class
     for i, tf_class in class_name.items():
-        base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'].append({'name': f'{tf_class}', 'visgroupid': str(80 + i)})
-        base_vmf['visgroups']['visgroups'][0]['visgroups'][3]['visgroups'].append({'name': f'{tf_class}', 'visgroupid': str(90 + i)})
-    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'].pop(-1)
-    base_vmf['visgroups']['visgroups'][0]['visgroups'][3]['visgroups'].pop(-1)
+        base_vmf.visgroups.visgroups[0].visgroups[2].visgroups.append(vmf_tool.namespace({'name': f'{tf_class}', 'visgroupid': str(80 + i)}))
+        base_vmf.visgroups.visgroups[0].visgroups[3].visgroups.append(vmf_tool.namespace({'name': f'{tf_class}', 'visgroupid': str(90 + i)}))
+    base_vmf.visgroups.visgroups[0].visgroups[2].visgroups.pop(-1)
+    base_vmf.visgroups.visgroups[0].visgroups[3].visgroups.pop(-1)
 
     #There is no downside to adding visgroups and not using them
-    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'][5]['visgroups'] = [{'name': 'Sentry', 'visgroupid': '100'}, {'name': 'Mini-Sentry', 'visgroupid': '101'}] # 5 Should Be Engineer
-    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'][7]['visgroups'] = [{'name': 'Headshot', 'visgroupid': '102'}] # 7 Should Be Sniper
-    base_vmf['visgroups']['visgroups'][0]['visgroups'][2]['visgroups'][8]['visgroups'] = [{'name': 'Backstab', 'visgroupid': '103'}] # 8 Should Be Spy
+    base_vmf.visgroups.visgroups[0].visgroups[2].visgroups[5].visgroups = [{'name': 'Sentry', 'visgroupid': '100'}, {'name': 'Mini-Sentry', 'visgroupid': '101'}]
+    base_vmf.visgroups.visgroups[0].visgroups[2].visgroups[7].visgroups = [{'name': 'Headshot', 'visgroupid': '102'}]
+    base_vmf.visgroups.visgroups[0].visgroups[2].visgroups[8].visgroups = [{'name': 'Backstab', 'visgroupid': '103'}]
 
     prop_dynamic = {'classname': 'prop_dynamic', 'editor': {}, 'solid': '0'}
-    # not solid
-    # render mode?
     props = []
     try:
-        # also need to catch singular
-        # really need methods for handling the singular/plural system and visgroups
-        ent_id = max([e['id'] for e in base_vmf['entities']])
-        props = base_vmf['entities']
+        ent_id = max([e['id'] for e in base_vmf.entities])
+        props = base_vmf.entities
     except:
         ent_id = 0
         
@@ -130,6 +127,7 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
         victim = copy.deepcopy(prop_dynamic)
         victim['id'] = ent_id
         ent_id += 1
+        victim['classname'] = 'prop_ragdoll'
         victim['model'] = class_model[kill[v_class]]
         victim['origin'] = f'{kill[v_x]} {kill[v_y]} {kill[v_z]}'
         victim['skin'] = '0' if kill[k_team] - 2 == 1 else '1'
@@ -153,6 +151,7 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
             ent_id += 1
             killer['model'] = class_model[kill[k_class]]
             killer['skin'] = str(kill[k_team]) # 0 = red, 1 = blue, 2 = uber_red, 3 = uber_blue
+            killer['DefaultAnim'] = 'taunt_laugh'
             if kill[k_class] == ENGINEER:
                 if kill[k_wep] == SENTRY:
                     killer['model'] = 'models/buildables/sentry3.mdl'
@@ -172,7 +171,7 @@ def heatmap_vmf(heatmap, into_vmf='../mapsrc/blank.vmf', victims=True, killers=T
 
 
 def get_heatmap(filepath):
-        """Foolproof heatmap generator"""
+        """Foolproof heatmap generator (Generates & Writes to File!)"""
         filepath = filepath.replace('\\', '/')
         if '/' in filepath:
             outdir, sep, map_name = filepath.rpartition('/')
@@ -189,6 +188,7 @@ def get_heatmap(filepath):
         else: # file named same as map OR map name
             heatmap = urllib.request.urlopen(f'{heatmap_site}/{map_name}{url_tail}')
         heatmap = heatmap_vmf(heatmap) # CONVERSION
+        print(f'Writing to {outdir}{map_name}_heatmap.vmf')
         vmf_tool.export(heatmap, open(f'{outdir}{map_name}_heatmap.vmf', 'w'))
         
 
@@ -197,8 +197,6 @@ if __name__ == "__main__":
 ##    # heatmap.tf/data/maps.json only lists maps with valid overiews
 ##    # heatmaps.tf API has rate limit of 20 requests per second per client
 ##    import argparse
-##    # MUCH OF THIS IS NOT YET IMPLEMENTED
-##    # BUT IS PLANNED TO BE
 ##    parser = argparse.ArgumentParser(description='Generate .vmf(s) from heatmaps.tf data', epilog="'@presets.txt' will load args from presets.txt", argument_default=[])
 ##    # --verbose?
 ##    parser.add_argument('-V', '--version', action='version', version='heatmap to vmf 1.0')
@@ -265,7 +263,8 @@ if __name__ == "__main__":
     sys.argv.append('F:/Code/javascript/koth_campania_af_complete.json')
     for filepath in sys.argv[1:]:
         print(filepath)
-        get_heatmap(filepath)
+        heatmap = get_heatmap(filepath)
+        
     input('Press Enter to Quit')
     
     

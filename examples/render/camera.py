@@ -38,9 +38,9 @@ class freecam:
         self.rotation.z = mousepos.x * sensitivity
         self.rotation.x = mousepos.y * sensitivity
         local_move = vec3()
-        local_move.x = ((SDLK_d in keys) - (SDLK_a in keys))
+        local_move.x = ((SDLK_d in keys or SDLK_RIGHT in keys) - (SDLK_a in keys or SDLK_LEFT in keys))
         local_move.y = ((SDLK_w in keys) - (SDLK_s in keys))
-        local_move.z = ((SDLK_q in keys) - (SDLK_e in keys))
+        local_move.z = ((SDLK_q in keys or SDLK_UP in keys) - (SDLK_e in keys  or SDLK_DOWN in keys))
         global_move = local_move.rotate(*-self.rotation)
         self.position += global_move * self.speed * dt
 

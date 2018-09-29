@@ -44,36 +44,31 @@
 #TODO: lightmode (blender-like colour scheming with presets)
 #TODO: displacement sculpt curve tools
 #------- guide frames for displacements (NURBS OR point cloud)
+#TODO: inner angle longer cone when adjusting light_spot (the area covered by the sharp edge should be obvious in the editor)
+#TODO: better framerate
+#TODO: load data from compiled .bsp (lightmaps etc.)
+#TODO: ragdoll preview
 import camera
-import colorsys
 import ctypes
 import enum
 import itertools
-from OpenGL.GL import * #Installed via pip (PyOpenGl 3.1.0)
-from OpenGL.GLU import * #PyOpenGL-accelerate 3.1.0 requires specific MSVC builds for Cython
-#get precompiled binaries if you can, it's much less work
-#for vertex buffers Numpy is needed (also available through pip)
+import numpy as np # for vertex buffers Numpy is needed (available through pip)
+from OpenGL.GL import * # Installed via pip (PyOpenGl 3.1.0)
+from OpenGL.GL.shaders import compileShader, compileProgram
+from OpenGL.GLU import * # PyOpenGL-accelerate 3.1.0 requires MSVC 2015
+# get precompiled binaries if you can, it's much less work
 import physics
 from sdl2 import * #Installed via pip (PySDL2 0.9.5)
-#requires SDL2.dll (steam has a copy in it's main directory)
-#and an Environment Variable (PYSDL2_DLL_PATH) holding it's location
+# requires SDL2.dll (steam has a copy in it's main directory)
+# and an Environment Variable (PYSDL2_DLL_PATH)
 import time
 
 import sys
-sys.path.insert(0, '../')
-import vector
 sys.path.insert(0, '../../')
 import vmf_tool
-
-
-def planes_intersect_at(p0, p1, p2):
-    p0 = p0[0] * p0[1]
-    p1 = p1[0] * p1[1]
-    p2 = p2[0] * p2[1]
-    X = p0.x + p1.x + p2.x
-    Y = p0.y + p1.y + p2.y
-    Z = p0.z + p1.z + p2.z
-    return vector.vec3(X, Y, Z)
+sys.path.insert(0, '../')
+import vector
+import solid_tool # must be loaded AFTER vmf_tool
 
 class pivot(enum.Enum): # for selections of more than one brush / entity
     """like blender pivot point"""
@@ -81,6 +76,7 @@ class pivot(enum.Enum): # for selections of more than one brush / entity
     active = 1
     cursor = 2
     individual = 3
+
 
 def draw_aabb(aabb):
     """"Precede with "glBegin(GL_QUADS)"\nExpects glPolygonMode to be GL_LINE"""
@@ -104,142 +100,6 @@ def draw_aabb(aabb):
     glVertex(aabb.max.x, aabb.min.y, aabb.min.z)
     glVertex(aabb.min.x, aabb.min.y, aabb.min.z)
 
-class solid:
-    # __slots__ = ['string_solid', 'colour', 'planes', 'vertices', 'faces']
-
-    def __init__(self, string_solid):
-        """Initialise from string, nested dict or namespace"""
-        if isinstance(string_solid, vmf_tool.namespace):
-            pass
-        elif isinstance(string_solid, dict):
-            source = vmf_tool.namespace(string_solid)
-        elif isinstance(string_solid, str):
-            source = vmf_tool.namespace_from(string_solid)
-        else:
-            raise RuntimeError(f'Tried to create solid from invalid type: {type(string_solid)}')
-        self.colour = tuple(int(x) / 255 for x in string_solid.editor.color.split())
-        self.string_triangles = [triangle_of(s) for s in string_solid.sides]
-        self.string_vertices = list(itertools.chain(*self.string_triangles))
-        self.planes = [plane_of(*t) for t in self.string_triangles]
-        intersects = {}
-        unchecked_planes = {i: plane for i, plane in enumerate(self.planes)}
-        for i, a_plane in enumerate(self.planes):
-            intersects[i] = []
-            unchecked_planes.pop(i)
-            for j, b_plane in unchecked_planes.items():
-                if vector.dot(a_plane[0], b_plane[0]) >= 0:
-                    intersects[i].append(j)
-            for key in intersects.keys():
-                if i in intersects[key]:
-                    intersects[i].append(key)
-
-        intersections = []
-        others = dict(intersects)
-        for i in intersects.keys():
-            others.pop(i)
-            other_others = dict(others)
-            for j in others.keys():
-                if j in intersects[i]:
-                    other_others.pop(j)
-                    for k in other_others:
-                        if k in intersects[i] and k in intersects[j]:
-                            intersections.append([i, j, k])
-
-        self.faces = {i: [] for i, p in enumerate(self.planes)} # sort CLOCKWISE
-        self.vertices = []
-        for i, ps in enumerate(intersections):
-            for plane_index in ps:
-                self.faces[plane_index].append(i)
-            self.vertices.append(planes_intersect_at(*[self.planes[p] for p in ps]))
-
-        all_x = [v.x for v in self.vertices]
-        all_y = [v.y for v in self.vertices]
-        all_z = [v.z for v in self.vertices]
-        min_x, max_x = min(all_x), max(all_x)
-        min_y, max_y = min(all_y), max(all_y)
-        min_z, max_z = min(all_z), max(all_z)
-        self.aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
-
-        all_x = [v[0] for v in self.string_vertices]
-        all_y = [v[1] for v in self.string_vertices]
-        all_z = [v[2] for v in self.string_vertices]
-        min_x, max_x = min(all_x), max(all_x)
-        min_y, max_y = min(all_y), max(all_y)
-        min_z, max_z = min(all_z), max(all_z)
-        self.string_aabb = physics.aabb([min_x, min_y, min_z], [max_x, max_y, max_z])
-
-    def draw(self):
-        glColor(1, 1, 1)
-        glBegin(GL_POINTS)
-        for vertex in self.string_vertices:
-            glVertex(*vertex)
-        glEnd()
-
-        glPolygonMode(GL_FRONT, GL_LINE)
-        glBegin(GL_QUADS)
-        draw_aabb(self.string_aabb)
-        glEnd()
-        glPolygonMode(GL_FRONT, GL_FILL)
-
-        glColor(*self.colour)
-        glBegin(GL_TRIANGLES)
-        for triangle in self.string_triangles:
-            for vertex in triangle:
-                glVertex(*vertex)
-        glEnd()
-        
-
-    def export(self):
-        """returns a dict resembling an imported solid"""
-        # foreach face
-        #   solid.sides.append(vmf_tool.namespace(...))
-        #   solid.sides.[-1].plane = '({:.f}) ({:.f}) ({:.f})'.format(*face[:3])
-        ...
-
-    def flip(self, center, axis):
-        """axis is a vector"""
-        # flip along axis
-        # maintain outward facing plane normals
-        # invert all plane normals along axis, flip along axis
-        ...
-
-    def rotate(self, pivot_point=None):
-        # if pivot_point == None:
-        #     pivot_point = self.center
-        # foreach plane
-        #     rotate normal
-        #     recalculate distance
-        # foreach vertex
-        #     translate -(self.center - origin)
-        #     rotate
-        #     translate back
-        ...
-
-    def translate(self, offset):
-        """offset is a vector"""
-        # for plane in self.planes
-        #     plane.distance += dot(plane.normal, offset)
-        # for vertex in self.vertices
-        #     vertex += offset
-        ...
-
-    def make_valid(self):
-        """take all faces and ensure their verts lie on shared planes"""
-        # ideally split if not convex
-        # can be very expensive to correct
-        # recalculate planes from tris if possible
-        # if any verts not on correct planes, throw warning
-        # check if solid has holes / is inverted
-        ...
-
-def triangle_of(side):
-    triangle = [[float(i) for i in xyz.split()] for xyz in side.plane[1:-1].split(') (')]
-    return tuple(map(vector.vec3, triangle))
-
-def plane_of(A, B, C):
-    """returns plane the triangle defined by A, B & C lies on"""
-    normal = ((A - B) * (C - B)).normalise()
-    return (normal, vector.dot(normal, A))
 
 def loop_fan(vertices):
     out = vertices[:3]
@@ -247,12 +107,14 @@ def loop_fan(vertices):
         out += [out[0], out[-1], vertex]
     return out
 
+
 def loop_fan_indices(vertices, start_index):
     "polygon to triangle fan (indices only) by Exactol"
     indices = []
     for i in range(1, len(vertices) - 1):
         indices += [startIndex, startIndex + i, startIndex + i + 1]
     return indices
+
 
 def main(vmf_path, width=1024, height=576):
     SDL_Init(SDL_INIT_VIDEO)
@@ -262,18 +124,97 @@ def main(vmf_path, width=1024, height=576):
     glClearColor(0.1, 0.1, 0.1, 0.0)
     glColor(1, 1, 1)
     gluPerspective(90, width / height, 0.1, 4096 * 4)
-    glPolygonMode(GL_BACK, GL_LINE)
+##    glOrtho(-width / 4, width / 4, -height / 4, height / 4, 0.1, 8096)
+    glEnable(GL_DEPTH_TEST)
+    glEnable(GL_CULL_FACE)
     glFrontFace(GL_CW)
     glPointSize(4)
 
     start_import = time.time()
     imported_vmf = vmf_tool.namespace_from(open(vmf_path))
+    if hasattr(imported_vmf.world, 'solid'):
+        imported_vmf.world.solids = [imported_vmf.world.solid]
+        del imported_vmf.world.solid
+    if not hasattr(imported_vmf.world, 'solids'):
+        imported_vmf.world['solids'] = []
+    if hasattr(imported_vmf, 'entity'):
+        imported_vmf.entities = [imported_vmf.entity]
+        del imported_vmf.entity
+    if not hasattr(imported_vmf, 'entities'):
+        imported_vmf['entities'] = []
 
     global solid
-    s40 = solid(imported_vmf.world.solids[40])
+    string_solids = []
+    for brush in imported_vmf.world.solids:
+        # bootleg auto-visgroup
+        if not any([face.material == 'TOOLS/SKIP' or face.material == 'TOOLS/HINT' or 'CLIP' in face.material.upper() for face in brush.sides]):
+##        if any([hasattr(face, 'dispinfo') for face in brush.sides]):
+            string_solids.append(brush)
+    for entity in imported_vmf.entities:
+        if hasattr(entity, 'solid'):
+            if isinstance(entity.solid, vmf_tool.namespace):
+                string_solids.append(entity.solid)
+        if hasattr(entity, 'solids'):
+            if isinstance(entity.solids[0], vmf_tool.namespace):
+                string_solids += entity.solids
+                
+    solids = []
+    for brush in string_solids:
+        try:
+            solids.append(solid_tool.solid(brush))
+        except Exception as exc:
+            print(f"Invalid solid! (id {brush.id})")
+            print(exc, '\n')
+            raise exc
+
+    brush_triangles = list(itertools.chain(*[s.triangles for s in solids]))
+
+    offset_index_map = lambda B, O: [(S + O, L) for S, L in B.index_map]
+    
+    brush_index_map = [s.index_map for s in solids]
+
+    # vertices, indices & draw_call map ((brush (faces, ...)), ...)
+    # [brush[sides], ... ] TO:
+    # vertices bytes,
+    # indices bytes &
+    # [(brush (start, len), side (start, len), ...), ...]
+    # use compress sequence to assemble draw calls
+
+##    # Vertex Shaders
+##    shader_brush = compileShader(open('shaders/verts_brush.v', 'rb'), GL_VERTEX_SHADER)
+##    ## shader_vert_displacement = compileShader(open('shaders/verts_displacement.v', 'rb'), GL_VERTEX_SHADER)
+##    # Fragment Shaders
+##    shader_flat_brush = compileShader(open('shaders/brush_flat.f', 'rb'), GL_FRAGMENT_SHADER)
+##    ## shader_flat_displacement = compileShader(open('shaders/displacement_flat.f', 'rb'), GL_FRAGMENT_SHADER)
+##    # Programs
+##    program_flat_brush = compileProgram(shader_brush, shader_flat_brush)
+##    ## program_flat_displacement = compileProgram(shader_displacement, shader_flat_displacement)
+##    glLinkProgram(program_flat_brush)
+##
+##    # Vertex Buffer
+##    VERTEX_BUFFER, INDEX_BUFFER = glGenBuffers(2)
+##    glBindBuffer(GL_ARRAY_BUFFER, VERTEX_BUFFER)
+##    glBufferData(GL_ARRAY_BUFFER, len(vertices) * 4, np.array(vertices, dtype=np.float32), GL_STATIC_DRAW)
+##    # Index Buffer
+##    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, INDEX_BUFFER)
+##    glBufferData(GL_ELEMENT_ARRAY_BUFFER, len(indices) * 4, np.array(indices, dtype=np.uint32), GL_STATIC_DRAW)
+##    # Vertex Format
+##    glEnableVertexAttribArray(0) # vertex_position
+##    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 40, GLvoidp(0))
+##    glEnableVertexAttribArray(1) # vertex_normal
+##    glVertexAttribPointer(1, 3, GL_FLOAT, GL_TRUE, 40, GLvoidp(12))
+##    glEnableVertexAttribArray(2) # vertex_uv
+##    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 40, GLvoidp(24))
+##    glEnableVertexAttribArray(4) # editor_colour
+##    glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 40, GLvoidp(32))
+##    # blend_alpha (displacement)
+##    glVertexAttribPointer(5, 1, GL_FLOAT, GL_FALSE, 40, GLvoidp(12)) # replace vertex_normal
+    
+    print(f'{len(solids)} brushes loaded succesfully!')   
     print('import took {:.2f} seconds'.format(time.time() - start_import))
 
     CAMERA = camera.freecam(None, None, 128)
+    render_solids = [s for s in solids if (s.center - CAMERA.position).sqrmagnitude() < 5120]
     rendered_ray = []
 
     SDL_SetRelativeMouseMode(SDL_TRUE)
@@ -312,8 +253,12 @@ def main(vmf_path, width=1024, height=576):
         dt = time.time() - old_time
         while dt >= 1 / tickrate:
             CAMERA.update(mousepos, keys, 1 / tickrate)
+            render_solids = [s for s in solids if (s.center - CAMERA.position).magnitude() < 2048]
             if SDLK_r in keys:
                 CAMERA = camera.freecam(None, None, 128)
+            if SDLK_BACKQUOTE in keys:
+                print(CAMERA.position)
+                print(len(render_solids))
             if SDL_BUTTON_LEFT in keys:
                 ray_start = CAMERA.position
                 ray_dir = vector.vec3(0, 1, 0).rotate(*-CAMERA.rotation)
@@ -341,44 +286,67 @@ def main(vmf_path, width=1024, height=576):
         glEnd()
 
         # RAYCAST
-        glColor(1, .25, 0)
+        glColor(1, .5, 0)
         glBegin(GL_LINES)
         for point in rendered_ray:
             glVertex(*point)
         glEnd()
 
         # GRID
-        glLineWidth(2)
-        glBegin(GL_LINES)
-        for x in range(-16, 17):
-            x = x * 64
-            glColor(1, 0 , 0)
-            glVertex(x, -1024, 0)
-            glColor(.25, .25, .25)
-            glVertex(x, 0, 0)
-            glVertex(x, 0, 0)
-            glColor(1, 0 , 0)
-            glVertex(x, 1024, 0)
-        for y in range(-16, 17):
-            y = y * 64
-            glColor(0, 1 , 0)
-            glVertex(-1024, y, 0)
-            glColor(.25, .25, .25)
-            glVertex(0, y, 0)
-            glVertex(0, y, 0)
-            glColor(0, 1 , 0)
-            glVertex(1024, y, 0)
+##        glLineWidth(2)
+##        glBegin(GL_LINES)
+##        for x in range(-16, 17):
+##            x = x * 64
+##            glColor(1, 0 , 0)
+##            glVertex(x, -1024, 0)
+##            glColor(.25, .25, .25)
+##            glVertex(x, 0, 0)
+##            glVertex(x, 0, 0)
+##            glColor(1, 0 , 0)
+##            glVertex(x, 1024, 0)
+##        for y in range(-16, 17):
+##            y = y * 64
+##            glColor(0, 1 , 0)
+##            glVertex(-1024, y, 0)
+##            glColor(.25, .25, .25)
+##            glVertex(0, y, 0)
+##            glVertex(0, y, 0)
+##            glColor(0, 1 , 0)
+##            glVertex(1024, y, 0)
+##        glEnd()
+
+        # SOLIDS
+##        glColor(1, 1, 1)
+##        glBegin(GL_TRIANGLES)
+##        for vertex in brush_triangles:
+##            glVertex(*vertex)
+##        glEnd()
+        
+        glBegin(GL_TRIANGLES)
+        for solid in render_solids:
+            glColor(*solid.colour)
+            for vertex in solid.triangles:
+                glVertex(*vertex)
         glEnd()
 
-        # SOLID OBJECT
-        s40.draw()
+        # BRUSH BOUNDING BOXES
+        # be sure to turn off backface culling
+##        glColor(1, 0, 0)
+##        glPolygonMode(GL_FRONT, GL_LINE)
+##        glBegin(GL_QUADS)
+##        for solid in solids:
+##            draw_aabb(solid.aabb)
+##        glEnd()
+##        glPolygonMode(GL_FRONT, GL_FILL)
 
         glPopMatrix()
         SDL_GL_SwapWindow(window)
 
 if __name__ == '__main__':
     try:
-        main('../../mapsrc/test2.vmf')
+##        main('../../mapsrc/test2.vmf')
+        main('../../mapsrc/sdk_pl_goldrush.vmf')
+##        main('../vmfs/hemisphere.vmf')
     except Exception as exc:
         SDL_Quit()
         raise exc
