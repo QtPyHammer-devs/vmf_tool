@@ -1,0 +1,92 @@
+See Also: https://developer.valvesoftware.com/wiki/Hammer_Feature_Requests
+
+--==Must Have Features==--
+Lighting preview
+    Shadows, room darkness & lightmap errors
+Transparent materials proper draw order
+Viewport render modes
+    Wireframe, flat, texture, shaded, shaded & textured
+Settings Menu
+    Keybinds, game config, render limits, default texture, default point & brush entities
+Load from VPK
+I/O Autocomplete
+    Use .fgd
+    Know type of !self
+    Allow users to choose expected !activator (but expect player & check flags)
+Realtime skybox & sun preview
+Multiple viewports
+    See blender subwindows
+Process .vmt & .vtf
+    Material flags & texture compression
+    Thumbnails
+    Material sounds & impact particles
+    Proxies (scrolling etc.)
+Compile Through Compilepal
+    pyHammer file -> .vmf -> Compilepal -> Release Quality .bsp
+Auto-save
+Custom pyHammer WIP format
+    Convert to .vmf for compile (or a button for changing devices)
+Inner angle more visible when adjusting light_spot
+    Brightest patch should be instantly clear
+Save appearance settings to file
+    Presets (Lightmode / Blender 2.49, darkmode)
+    Layouts Tab (detail, blocking, texturing, logic)
+    Button Sprites
+    Load from .zip
+
+    
+--==Nice To Have Features==--
+Forest fill (prop family, density, falloff side, sort by tricount)
+Model Copy & Edit
+    flip prop along axis
+Brushes to Model
+Preview I/O Sequence
+    Payload gates
+    Timed Logic
+Packed .bsp peek
+    Copy entities & I/O from packed Source.bsp.bz2
+    Cubemaps
+    Lightmaps
+MvM Tools
+    Load scaled Bots from MvM popfile
+    Sweep tank along track
+I/O flowcharts and/or nodes
+Fast overlay copy
+    Keep dimensions & orientation
+    Assign to nearby faces
+Copy displacements to other faces / brushes
+Generate Asset Zoo from map(s)
+Import sky/sun/fog from map
+Export to obj (one object per solid)
+.obj import (each object is a solid)
+Suggest Version Numbers (Alpha, Beta & RC)
+Prop / brush render mode / effects preview
+Blend modulate preview
+Copy Output as AddOutput
+Copy AddOutput as Output
+Scaled prop preview
+Particle preview
+Displacement Tools
+    Quick Hydro sattelite dish
+    Quick spiral staircase
+    Cylinder
+    Multi-res sculpt
+    ANT Terrain Generator (Skybox / Inspiration)
+    Sew with Skybox
+Rulers
+    Jump Arcs (Double, Detonator, Scorch Shot, Pill, Trimp)
+    Rocket Jump Chains
+Load Motion Paths from Demo File
+Load Heatmap
+Ragdoll Preview
+Stair Tools
+    Rise / Run
+    Blender Array Modifier
+Sightline spotter
+    Point out the longest and narrowest sightlines to a given point
+    Hardest to spot (lighting or size) should be prioritised
+Quick gamemode (Ctrl+N Menu)
+    NEW 5CP, NEW PLR (MULTI-STAGE) etc.
+    Boojum Snark's Gamemode Prefabs / Zoo
+Mirror map (Invert team logic & colours)
+    Texture palette to replace many textures at once

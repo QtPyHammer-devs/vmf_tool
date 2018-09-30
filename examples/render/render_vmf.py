@@ -1,53 +1,3 @@
-#TODO: !!! render each plane of a solid within it's bounding box !!!
-#TODO: custom format with .vmf export
-#TODO: auto-saves & auto-version numbering (Alpha, Beta, sub-version & RC buttons)
-#TODO: compilepal button
-#TODO: preview cubemaps (load from .bsp copy in /maps)
-#TODO: export to obj (one object per solid)
-#TODO: obj import (each object is a solid)
-#TODO: multiple 2D viewports
-#------- totally customisable:
-#------- position, size, ortho/perspective etc. (like blender)
-#TODO: less hassle overlay copy & paste
-#TODO: materials
-#TODO: LIVE skybox & sun preview
-#TODO: lighting preview
-#TODO: displacement face copying (fusing brushes)
-#TODO: render effects preview
-#TODO: forest fill (prop family, density, falloff side, sort by tricount)
-#TODO: blend modulate preview
-#TODO: transparency & alpha sorting
-#TODO: render modes (wireframe, flat, textured etc)
-#TODO: settings that can be changed without restarting & SETTINGS FILES
-#TODO: vpk browser
-#TODO: script I/O (MvM Previews, including BOSS & TANK sizes)
-#TODO: .nav viewer & editor, auto-generated I/O tracking
-#TODO: output to addoutput and vice-versa (show AddOutputs in entity Outputs)
-#TODO: brush group to .smd/.dmx (live model editing with Save-as)
-#------- fast .vmt translation & .qc generation
-#------- compile .mdl on next map compile
-#TODO: motion previews (animation tools for brush objects)
-#TODO: rulers (jump curves, rocket tracks)
-#TODO: material proxy previews (animated .vmts)
-#TODO: Twister-esque quick displacements / arches
-#------- quick sattelite dish
-#------- quick spiral staircase
-#TODO: stairs with slope & step fields, like a blender modifier
-#TODO: mirror team (flip or rotate)
-#TODO: sightline spotter
-#------- point out the longest and narrowest sightlines to a given point
-#------- hardest to spot (lighting or size) should be prioritised
-#TODO: quick gamemode (Ctrl+N Menu)
-#TODO: better I/O autocomplete, copy & addoutput tools
-#------- typed activator (check flags etc. to know what will/may trigger)
-#TODO: displacement rounding with preserve edges optional
-#TODO: lightmode (blender-like colour scheming with presets)
-#TODO: displacement sculpt curve tools
-#------- guide frames for displacements (NURBS OR point cloud)
-#TODO: inner angle longer cone when adjusting light_spot (the area covered by the sharp edge should be obvious in the editor)
-#TODO: better framerate
-#TODO: load data from compiled .bsp (lightmaps etc.)
-#TODO: ragdoll preview
 import camera
 import ctypes
 import enum
@@ -344,8 +294,8 @@ def main(vmf_path, width=1024, height=576):
 
 if __name__ == '__main__':
     try:
-##        main('../../mapsrc/test2.vmf')
-        main('../../mapsrc/sdk_pl_goldrush.vmf')
+        main('../../mapsrc/test2.vmf')
+##        main('../../mapsrc/sdk_pl_goldrush.vmf')
 ##        main('../vmfs/hemisphere.vmf')
     except Exception as exc:
         SDL_Quit()
