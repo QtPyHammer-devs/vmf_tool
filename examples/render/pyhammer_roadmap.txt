@@ -33,6 +33,7 @@ Save appearance settings to file
     Layouts Tab (detail, blocking, texturing, logic)
     Button Sprites
     Load from .zip
+Undo & Redo
 
     
 --==Nice To Have Features==--
@@ -90,3 +91,7 @@ Quick gamemode (Ctrl+N Menu)
     Boojum Snark's Gamemode Prefabs / Zoo
 Mirror map (Invert team logic & colours)
     Texture palette to replace many textures at once
+Per file diff (utilise Undo List)
+    Remove redundant changes
+    Auto Changelog (with screenshot suggestions)
+    Green Yellow Red: New, Changed Removed
