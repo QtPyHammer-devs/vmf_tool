@@ -11,6 +11,9 @@ print('ids = {name: id, ...} ... ', end='')
 ids = {k: v for k, v in schema.items_game.items.__dict__.items() if str.isdigit(k)}
 print('Done!')
 
+# {name: model}
+{}
+
 # weapon / item ids to file
 ##outfile = open('item_ids', 'w')
 ##for line in vmf_tool.lines_from({'ids': ids}):

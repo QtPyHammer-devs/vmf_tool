@@ -91,7 +91,14 @@ Quick gamemode (Ctrl+N Menu)
     Boojum Snark's Gamemode Prefabs / Zoo
 Mirror map (Invert team logic & colours)
     Texture palette to replace many textures at once
+    Mirror Line, Mirror Rotationally (Ignore skybox)
+    Allow for assymetrical detail (but warns when balance is effected)
 Per file diff (utilise Undo List)
     Remove redundant changes
     Auto Changelog (with screenshot suggestions)
     Green Yellow Red: New, Changed Removed
+Selecting an entire group (or part of) in object or solids mode, copies of the selection will group parts of groups
+Meaningful sub-grouping
+per entity output organisation (group lines of outputs)
+copied objects retain the visgroup of origonal object (optional)
+https://tf2maps.net/threads/3-most-wanted-features-for-hammer.37807/
