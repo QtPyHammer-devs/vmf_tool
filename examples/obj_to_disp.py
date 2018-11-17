@@ -164,28 +164,36 @@ def generate_solid(rows):
     CDB = ((C - D) * (B - D)).normalise()
     N = ABC + CDB / 2
 
-    dominant_axis = vector.vec3()
-    dominant_axis[N.index(max(N))] = 1
+    dominant_axis = [1 if x abs(x) == max(abs(y) for y in N) else 0 for x in N]
+    if N.index([i for i, x in enumerate(dominant_axis) if i == 1]) < 0:
+        dominant_axis = -dominant_axis
 
     solid = {"id": "0", "sides": [], "editor": {
                  "color": "255 0 255", "visgroupshown": "1",
                  "visgroupautoshown": "1"}}
 
+    # other_side = {"material": "TOOLS/TOOLSNODRAW"}
+
     side_id = 1
-    disp_side = {"material": "DEV/DEV_BLENDMEASURE",
-                 }
+    disp_side = {"material": "DEV/DEV_BLENDMEASURE"}
     #disp_side["dispinfo"] = str(side_id)
     #side_id += 1
     #disp_side["dispinfo"] = {"flags": "0", "subdiv": "0", "elevation": "0"}
     #disp_side["dispinfo"]["power"] = 2 or 3
-    #disp_side["dispinfo"]["startposition"] = "[X.XX Y.YY Z.ZZ]"
-    #disp_side["plane"] = "(X Y Z) (X Y Z) (X Y Z)"
-    #solid["sides"].append(disp_side)
+    #disp_side["dispinfo"]["startposition"] = "[X.XX Y.YY Z.ZZ]" # A on Grid
+    # calc x, y, z from dominant axis
     # get bounds of A, B, C & D
     # snap A, B & C to GRID (2^x integers)
-    # take each edge and add dominant_axis * 64 to winding
-    # final face is reversed ABC offset by dominant_axis * 64
-    # DISPLACEMENT IS ALWAYS SIDE 0
+    # consider UVs (AB & AC to texvecs)
+    #disp_side["plane"] = "(X Y Z) (X Y Z) (X Y Z)"
+    #solid["sides"].append(disp_side)
+    # extrude other 5 faces back from disp by grid_size units
+    # final face is reversed disp A B & C
+    # ENSURE DISPLACEMENT IS ALWAYS SIDE 0
+
+
+#TODO: UI
+#--- Tkinter for now
     
 
 if __name__ == "__main__":
@@ -214,11 +222,11 @@ if __name__ == "__main__":
     vector_rows = []
     # rows are nice and easy to split!
     # use vector.lerp for boundaries between disps of different powers
-    for x, row in enumerate(rows): # assuming power 2
-        x = x / 4
+    for x, row in enumerate(rows): 
+        x = x / 4 # assuming power 2
         vector_rows.append([])
         for y, index in enumerate(row):
-            y = y / 4
+            y = y / 4 # assuming power 2
             bary_point = vector.lerp(A + (AD * x), B + (BC * x), y)
             point = vertices[index] - bary_point
             vector_rows[-1].append(point)

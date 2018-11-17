@@ -271,7 +271,7 @@ def main(vmf_path, width=1024, height=576):
 ##        for vertex in brush_triangles:
 ##            glVertex(*vertex)
 ##        glEnd()
-        
+
         glBegin(GL_TRIANGLES)
         for solid in render_solids:
             glColor(*solid.colour)

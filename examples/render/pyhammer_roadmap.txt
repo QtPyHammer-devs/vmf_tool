@@ -102,3 +102,9 @@ Meaningful sub-grouping
 per entity output organisation (group lines of outputs)
 copied objects retain the visgroup of origonal object (optional)
 https://tf2maps.net/threads/3-most-wanted-features-for-hammer.37807/
+carve that just extrudes smoothly
+browse for sprites / hud materials in texture browser (context aware)
+edit vmf in cinema4d / blender (would take years you absolute madman, stop doing this to yourself)
+Action History Text Log
+Plain English IO Debugging
+    Identify Keywords, Contexts and Discern what should be examined

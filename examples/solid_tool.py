@@ -50,6 +50,11 @@ class solid:
         # goldrush contains an example (start of stage 2, arch behind cart)
         self.planes = [plane_of(*t) for t in self.string_triangles] # ((Normal XYZ), Dist)
 
+        # match vertices to plane intersections
+        # tabulate edges where 2 planes meet
+        # identify holes (1 vertex edges)
+        # calculate missing vertices from holes (if any)
+
         # faces namespace
         # face([plane, texture_data([material, uvs, lightmap_scale]), vertices])
         self.faces = []
