@@ -1,4 +1,6 @@
+# TODO: Free mouse when window is in background / on keypress
 import camera
+import colorsys
 import ctypes
 import enum
 import itertools
@@ -202,12 +204,13 @@ def main(vmf_path, width=1024, height=576):
 
         dt = time.time() - old_time
         while dt >= 1 / tickrate:
+            # use keytime to delay input repeat
             CAMERA.update(mousepos, keys, 1 / tickrate)
             render_solids = [s for s in solids if (s.center - CAMERA.position).magnitude() < 2048]
             if SDLK_r in keys:
                 CAMERA = camera.freecam(None, None, 128)
             if SDLK_BACKQUOTE in keys:
-                print(CAMERA.position)
+                print(f'{CAMERA.position:.3f}')
                 print(len(render_solids))
             if SDL_BUTTON_LEFT in keys:
                 ray_start = CAMERA.position
@@ -274,10 +277,42 @@ def main(vmf_path, width=1024, height=576):
 
         glBegin(GL_TRIANGLES)
         for solid in render_solids:
-            glColor(*solid.colour)
-            for vertex in solid.triangles:
-                glVertex(*vertex)
+            if not solid.is_displacement:
+                glColor(*solid.colour) # Flat Colour Unshaded
+                for side_index, index_range in enumerate(solid.face_tri_map):
+                    normal = solid.planes[side_index][0]
+                    Kd = (vector.dot(normal, (1, 1, 1)) / 16) + .75
+                    glColor(*[Kd * x for x in solid.colour])
+                    start, end = index_range
+                    for vertex in solid.triangles[start:end]:
+                        glVertex(*vertex)
         glEnd()
+
+        # DISPLACEMENTS
+        glBegin(GL_TRIANGLES)
+        glColor(.5, .5, .5)
+        for solid in render_solids:
+            if solid.is_displacement:
+                glColor(1, 1, 1) # Hammer Default
+                for i, points in solid.displacement_triangles.items():
+                    for point, alpha, normal in points:
+                        Kd = (vector.dot(normal, (1, 1, 1)) / 16) + .75
+                        # clamped from 0.75 to 0.75 + 1/32
+                        blend = vector.lerp(solid.colour, solid.sides[i].blend_colour, alpha / 255)
+                        glColor(*[Kd * x for x in blend])
+                        glVertex(*point)
+        glEnd()
+
+        # DISPLACEMENT NORMALS
+##        glColor(1, .75, 0)
+##        glBegin(GL_LINES)
+##        for solid in render_solids:
+##            if solid.is_displacement:
+##                for side_index, points in solid.displacement_vertices.items():
+##                    for point, alpha, normal in points:
+##                        glVertex(*point)
+##                        glVertex(*point + normal * 32)
+##        glEnd()
 
         # BRUSH BOUNDING BOXES
         # be sure to turn off backface culling
@@ -297,6 +332,7 @@ if __name__ == '__main__':
         main('../../mapsrc/test2.vmf')
 ##        main('../../mapsrc/sdk_pl_goldrush.vmf')
 ##        main('../vmfs/hemisphere.vmf')
+##        main('../../mapsrc/test_disp.vmf')
     except Exception as exc:
         SDL_Quit()
         raise exc

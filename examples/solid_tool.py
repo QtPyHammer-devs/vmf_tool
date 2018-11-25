@@ -30,6 +30,52 @@ def loop_fan_indices(vertices):
         indices += [0, i, i + 1]
     return indices
 
+def disp_tris(verts, power): # copied from snake-biscuits/bsp_tool/bsp_tool.py
+    """takes flat array of verts and arranges them in a patterned triangle grid
+    expects verts to be an array of length ((2 ** power) + 1) ** 2"""
+    power2 = 2 ** power
+    power2A = power2 + 1
+    power2B = power2 + 2
+    power2C = power2 + 3
+    tris = []
+    for line in range(power2):
+        line_offset = power2A * line
+        for block in range(2 ** (power - 1)):
+            offset = line_offset + 2 * block
+            if line % 2 == 0: # |\|/|
+                tris.append(verts[offset + 0])
+                tris.append(verts[offset + power2A])
+                tris.append(verts[offset + 1])
+
+                tris.append(verts[offset + power2A])
+                tris.append(verts[offset + power2B])
+                tris.append(verts[offset + 1])
+
+                tris.append(verts[offset + power2B])
+                tris.append(verts[offset + power2C])
+                tris.append(verts[offset + 1])
+
+                tris.append(verts[offset + power2C])
+                tris.append(verts[offset + 2])
+                tris.append(verts[offset + 1])
+            else: #|/|\|
+                tris.append(verts[offset + 0])
+                tris.append(verts[offset + power2A])
+                tris.append(verts[offset + power2B])
+
+                tris.append(verts[offset + 1])
+                tris.append(verts[offset + 0])
+                tris.append(verts[offset + power2B])
+
+                tris.append(verts[offset + 2])
+                tris.append(verts[offset + 1])
+                tris.append(verts[offset + power2B])
+
+                tris.append(verts[offset + power2C])
+                tris.append(verts[offset + 2])
+                tris.append(verts[offset + power2B])
+    return tris
+
 
 class solid:
     def __init__(self, string_solid):
@@ -49,6 +95,12 @@ class solid:
         # does not contain every point, some will be missing
         # goldrush contains an example (start of stage 2, arch behind cart)
         self.planes = [plane_of(*t) for t in self.string_triangles] # ((Normal XYZ), Dist)
+        self.is_displacement = False
+        self.sides = []
+        for side in self.string_solid.sides:
+            del side.id
+            del side.plane
+            self.sides.append(vmf_tool.namespace(side))
 
         # match vertices to plane intersections
         # tabulate edges where 2 planes meet
@@ -70,7 +122,86 @@ class solid:
 
         # displacements next
         # loop fan OR disp pattern
-        self.triangles = tuple(itertools.chain(*[loop_fan(f) for f in self.faces]))
+        self.face_tri_map = []
+        triangles = []
+        last_index = 0
+        for face in self.faces:
+            face_tris = loop_fan(face)
+            self.face_tri_map.append((last_index, last_index + len(face_tris)))
+            last_index += len(face_tris)
+            triangles += face_tris
+        self.triangles = tuple(triangles)
+
+        # move triangle assembley to renderer (make immutable)
+        self.displacement_triangles = {}
+        # {side_index: vertices}
+        self.displacement_vertices = {}
+        for i, side in enumerate(string_solid.sides):
+            if hasattr(side, 'dispinfo'):
+                self.sides[i].blend_colour = [1 - i for i in self.colour]
+                self.is_displacement = True
+                power = int(side.dispinfo.power)
+                power2 = 2 ** power
+                quad = tuple(vector.vec3(x) for x in self.faces[i])
+                start = vector.vec3(eval(side.dispinfo.startposition.replace(' ', ', ')))
+                if start in quad:
+                    index = quad.index(start) - 1
+                    quad = quad[index:] + quad[:index]
+                else:
+                    raise RuntimeError(f"Couldn't find start of displacement! (side id {side.id})")
+                side_dispverts = []
+                A, B, C, D = quad
+                DA = D - A
+                CB = C - B
+                distance_rows = side.dispinfo.distances.__dict__.values()
+                normal_rows = side.dispinfo.normals.__dict__.values()
+                normals = []
+                alphas = []
+                for y, distances_row, normals_row in zip(itertools.count(), distance_rows, normal_rows):
+                    distances_row = [float(x) for x in distances_row.split()]
+                    normals_row = [*map(float, normals_row.split())]
+                    left_vert = A + (DA * y / power2)
+                    right_vert = B + (CB * y / power2)
+                    for x, distance in zip(itertools.count(), distances_row):
+                        k = x * 3
+                        normal = vector.vec3(normals_row[k], normals_row[k + 1], normals_row[k + 2])
+                        baryvert = vector.lerp(right_vert, left_vert, x / power2)
+                        side_dispverts.append(vector.vec3(baryvert) + (distance * normal))
+
+                def square_neighbours(x, y, edge_length):
+                    """square is the length of an edge"""
+                    for i in range(x - 1, x + 2):
+                        if i >= 0 and i < edge_length:
+                            for j in range(y - 1, y + 2):
+                                if j >= 0 and j < edge_length:
+                                    if not (i != x and j != y):
+                                        yield i * edge_length + j
+                
+                for x in range(power2 + 1):
+                    for y in range(power2 + 1):
+                        dispvert = side_dispverts[x * (power2 + 1) + y]
+                        neighbour_indices = square_neighbours(x, y, power2 + 1)
+                        try:
+                            neighbours = [side_dispverts[i] for i in neighbour_indices]
+                        except Exception as exc:
+                            print(f'({x} {y}) {list(square_neighbours(x, y, power2 + 1))}')
+                            print(exc)
+                        normal = vector.vec3(0, 0, 1)
+                        if len(neighbours) != 0:
+                            normal -= dispvert - sum(neighbours, vector.vec3()) / len(neighbours)
+                            normal = normal.normalise()
+                        normals.append(normal)
+
+                alphas = [float(a) for row in side.dispinfo.alphas.__dict__.values() for a in row.split()]
+                self.displacement_vertices[i] = [*zip(side_dispverts, alphas, normals)]
+                self.displacement_triangles[i] = disp_tris(self.displacement_vertices[i], power)
+                # use disp_tris when assembling vertex buffers
+                # only store and update verts (full format)
+                # assemble vertex format (vertex, normal, uv, colour, blend_alpha)
+
+        if len(self.displacement_triangles) == 0:
+            del self.displacement_triangles
+            del self.displacement_vertices
 
         self.indices = []
         self.vertices = [] # [((position), (normal), (uv)), ...]
