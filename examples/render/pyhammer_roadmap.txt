@@ -131,3 +131,4 @@ Demo playback tools
     Choose target (scoreboard, click in 3d, name in chat)
     Chokemap (mark rough owned territories & front lines)
     As close to player HUD as possible
+Snap to vertex

@@ -13,6 +13,8 @@ import physics
 from sdl2 import * #Installed via pip (PySDL2 0.9.5)
 # requires SDL2.dll (steam has a copy in it's main directory)
 # and an Environment Variable (PYSDL2_DLL_PATH)
+# PYSDL2_DLL_PATH must point to the folder containing the DLL
+# this makes loading SDL2 addons with their DLLs in the same folders very easy
 import time
 
 import sys
@@ -117,7 +119,7 @@ def main(vmf_path, width=1024, height=576):
         except Exception as exc:
             print(f"Invalid solid! (id {brush.id})")
             print(exc, '\n')
-            raise exc
+##            raise exc
 
     brush_triangles = list(itertools.chain(*[s.triangles for s in solids]))
 
@@ -165,6 +167,8 @@ def main(vmf_path, width=1024, height=576):
     print(f'{len(solids)} brushes loaded succesfully!')   
     print('import took {:.2f} seconds'.format(time.time() - start_import))
 
+    # Skybox, 3D grid, Origin Point (Utilities Static Buffer)
+
     CAMERA = camera.freecam(None, None, 128)
     render_solids = [s for s in solids if (s.center - CAMERA.position).sqrmagnitude() < 5120]
     rendered_ray = []
@@ -206,7 +210,7 @@ def main(vmf_path, width=1024, height=576):
         while dt >= 1 / tickrate:
             # use keytime to delay input repeat
             CAMERA.update(mousepos, keys, 1 / tickrate)
-            render_solids = [s for s in solids if (s.center - CAMERA.position).magnitude() < 2048]
+##            render_solids = [s for s in solids if (s.center - CAMERA.position).magnitude() < 2048]
             if SDLK_r in keys:
                 CAMERA = camera.freecam(None, None, 128)
             if SDLK_BACKQUOTE in keys:
@@ -304,15 +308,15 @@ def main(vmf_path, width=1024, height=576):
         glEnd()
 
         # DISPLACEMENT NORMALS
-##        glColor(1, .75, 0)
-##        glBegin(GL_LINES)
-##        for solid in render_solids:
-##            if solid.is_displacement:
-##                for side_index, points in solid.displacement_vertices.items():
-##                    for point, alpha, normal in points:
-##                        glVertex(*point)
-##                        glVertex(*point + normal * 32)
-##        glEnd()
+        glColor(1, .75, 0)
+        glBegin(GL_LINES)
+        for solid in render_solids:
+            if solid.is_displacement:
+                for side_index, points in solid.displacement_vertices.items():
+                    for point, alpha, normal in points:
+                        glVertex(*point)
+                        glVertex(*point + normal * 32)
+        glEnd()
 
         # BRUSH BOUNDING BOXES
         # be sure to turn off backface culling
@@ -329,8 +333,8 @@ def main(vmf_path, width=1024, height=576):
 
 if __name__ == '__main__':
     try:
-        main('../../mapsrc/test2.vmf')
-##        main('../../mapsrc/sdk_pl_goldrush.vmf')
+##        main('../../mapsrc/test2.vmf')
+        main('../../mapsrc/sdk_pl_goldrush.vmf')
 ##        main('../vmfs/hemisphere.vmf')
 ##        main('../../mapsrc/test_disp.vmf')
     except Exception as exc:
