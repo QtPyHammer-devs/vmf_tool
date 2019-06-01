@@ -148,23 +148,24 @@ def dict_from(namespace_nest):
 
 
 def lines_from(_dict, tab_depth=0):
-    "Generate lines of text from a nested dict / namespace"
+    '''Takes a nested dictionary (which may also contain lists, but not tuples)
+from this a series of strings resembling valve's text format used in .vmf files
+are generated approximately one line at a time'''
     tabs = '\t' * tab_depth
-    for key, value in _dict.items() if isinstance(_dict, dict) else _dict.__dict__.items():
-        if isinstance(value, dict) or isinstance(value, namespace):
-            yield f'{tabs}{key}\n{tabs}' + '{\n'
-            for line in lines_from(value, tab_depth + 1):
-                yield line
-        elif isinstance(value, list):
+    for key, value in _dict.items():
+        if isinstance(value, dict): # another layer
+            value = (value,)
+        elif isinstance(value, list): # collection of plurals
             key = singularise(key)
-            for item in value:
-                yield f'{tabs}{key}\n{tabs}' + '{\n'
-                for line in lines_from(item, tab_depth + 1):
-                    yield line
-        else:
+        else: # key-value pair
             yield f'{tabs}"{key}" "{value}"\n'
+            continue
+        for item in value:
+            yield f'{tabs}{key}\n{tabs}' + '{\n' # open into the next layer
+            for line in lines_from(item, tab_depth + 1): # recurse down
+                yield line
     if tab_depth > 0:
-        yield '\t' * (tab_depth - 1) + '}\n'
+        yield '\t' * (tab_depth - 1) + '}\n' # close the layer
 
 
 def export(_dict, outfile):
