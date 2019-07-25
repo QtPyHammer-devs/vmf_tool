@@ -11,7 +11,7 @@ import vmf_tool
 # TODO: allow filtering to work at the URL level for faster imports
 
 # http://heatmaps.tf/api.html
-heatmap_site = 'http://heatmaps.tf/data/kills/'
+heatmap_site = 'https://heatmaps.tf/data/kills/'
 url_tail = '.json?fields=killer_class,killer_x,killer_y,killer_z,victim_class,victim_x,victim_y,victim_z,team,killer_weapon'
 
 print('Loading Client Schema...', end='')
@@ -48,7 +48,7 @@ customkill = ['Headshot', 'Backstab', 'Burning', 'Wrench Fix', 'Minigun',
               'Decapitated by a Wizard', ' ! D O N K ! ', 'BrÜtal']
 
 # DEATH_FLAGS (BITFIELD)
-death_flags = {1: 'Domination', 2: 'Assist Domintion', 4: 'Revenge', 8: 'Assist Revenge',
+death_flags = {1: 'Domination', 2: 'Assist Domination', 4: 'Revenge', 8: 'Assist Revenge',
                16: 'First Blood', 32: 'Dead Ringer', 64: 'Interrupted', 128: 'Gibbed',
                256: 'Purgatory'}
 
@@ -186,7 +186,9 @@ def get_heatmap(filepath):
         if filetype == 'json': # user downloaded .json
             heatmap = open(filepath) # may lack fields converter needs (see url_tail)
         else: # file named same as map OR map name
-            heatmap = urllib.request.urlopen(f'{heatmap_site}/{map_name}{url_tail}')
+            heatmap = urllib.request.urlopen(f'{heatmap_site}{map_name}{url_tail}')
+            print('Heatmap loaded from site succesfully!')
+        print(f'Creating {map_name}_heatmap.vmf...')
         heatmap = heatmap_vmf(heatmap) # CONVERSION
         print(f'Writing to {outdir}{map_name}_heatmap.vmf')
         vmf_tool.export(heatmap, open(f'{outdir}{map_name}_heatmap.vmf', 'w'))
@@ -260,8 +262,8 @@ if __name__ == "__main__":
 ##    # filter_weapons = any([??? for w in filter_weapons])
     #TEMPORARY DRAG & DROP
     import sys
-    sys.argv.append('F:/Code/javascript/koth_campania_af_complete.json')
     for filepath in sys.argv[1:]:
+        print('-' * 80)
         print(filepath)
         heatmap = get_heatmap(filepath)
         

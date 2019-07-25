@@ -134,6 +134,10 @@ class namespace: # DUNDER METHODS ONLY!
     def __repr__(self):
         return f"namespace([{', '.join(self.__dict__.keys())}])"
 
+    def items(self): # fix for lines_from
+        for k, v in self.__dict__.items():
+            yield (k, v)
+
 
 def dict_from(namespace_nest):
     out = dict()
@@ -147,13 +151,13 @@ def dict_from(namespace_nest):
     return out
 
 
-def lines_from(_dict, tab_depth=0):
+def lines_from(_dict, tab_depth=0): # rethink & refactor
     '''Takes a nested dictionary (which may also contain lists, but not tuples)
 from this a series of strings resembling valve's text format used in .vmf files
 are generated approximately one line at a time'''
     tabs = '\t' * tab_depth
     for key, value in _dict.items():
-        if isinstance(value, dict): # another layer
+        if isinstance(value, (dict, namespace)): # another layer
             value = (value,)
         elif isinstance(value, list): # collection of plurals
             key = singularise(key)
@@ -170,10 +174,8 @@ are generated approximately one line at a time'''
 
 def export(_dict, outfile):
     """Don't forget to close the file afterwards!"""
-    print('Exporting ... ', end='')
     for line in lines_from(_dict):
         outfile.write(line)
-    print('Done!')
 
 
 def add_visgroups(vmf, visgroup_dict): # WIP
