@@ -71,9 +71,9 @@ def namespace_from(text_file):
     namespace_nest = namespace({})
     current_scope = scope([])
     previous_line = ''
-    for line_no, line in enumerate(file_iter):
+    for line_number, line in enumerate(file_iter):
         try:
-            new_namespace = namespace({'_line': line_no})
+            new_namespace = namespace({'_line': line_number})
             line = line.rstrip('\n')
             line = textwrap.shorten(line, width=200) # cleanup spacing, may break at 200+ chars
             if line == '' or line.startswith('//'): # ignore blank / comments
@@ -105,9 +105,10 @@ def namespace_from(text_file):
                 exec(f'namespace_nest{current_scope}[key] = value')
             previous_line = line.strip('"')
         except Exception as exc:            
-            print(f'error on line {line_no:04d}:\n{line}\n{previous_line}')
+            print(f'error on line {line_number:04d}:\n{line}\n{previous_line}')
             raise exc
     return namespace_nest
+
     
 class namespace: # DUNDER METHODS ONLY!
     """Nested Dicts -> Nested Objects"""
@@ -133,7 +134,8 @@ class namespace: # DUNDER METHODS ONLY!
         return len(self.__dict__.keys())
 
     def __repr__(self):
-        return f"namespace([{', '.join(self.__dict__.keys())}])"
+        attrs = [a if ' ' not in a else f'"{a}"' for a in self.__dict__.keys()]
+        return f"namespace([{', '.join(attrs)}])"
 
     def items(self): # fix for lines_from
         for k, v in self.__dict__.items():
@@ -177,11 +179,13 @@ are generated approximately one line at a time'''
 
 def export(_dict, outfile):
     """Don't forget to close the file afterwards!"""
-    for line in lines_from(_dict):
-        outfile.write(line)
+    print('Exporting {outfile.name} ... ', end='')
+    for line in lines_from(_dict): # using a buffer to write in chunks may be wise
+        outfile.write(line) # ''.join([line for line in lines_from(_dict)]) also works
+    print('Done!')
 
 
-def add_visgroups(vmf, visgroup_dict): # WIP
+def add_visgroups(vmf, visgroup_dict): # work in progress
     """Add visgroups defined in a some object"""
     # FORMAT (TOP: [INNER1, INNER2: []])
     if 'visgroups' not in vmf:
