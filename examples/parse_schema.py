@@ -11,8 +11,8 @@ print('ids = {name: id, ...} ... ', end='')
 ids = {k: v for k, v in schema.items_game.items.__dict__.items() if str.isdigit(k)}
 print('Done!')
 
-# {name: model}
-{}
+# {weapon_name: model}
+items_by_name = {v.name: v for k, v in ids.items()}
 
 # weapon / item ids to file
 ##outfile = open('item_ids', 'w')

@@ -73,6 +73,7 @@ def namespace_from(text_file):
     previous_line = ''
     for line_no, line in enumerate(file_iter):
         try:
+            new_namespace = namespace({'_line': line_no})
             line = line.rstrip('\n')
             line = textwrap.shorten(line, width=200) # cleanup spacing, may break at 200+ chars
             if line == '' or line.startswith('//'): # ignore blank / comments
@@ -83,15 +84,15 @@ def namespace_from(text_file):
                 if previous_line in current_keys: # NEW plural
                     exec(f'namespace_nest{current_scope}[plural] = [namespace_nest{current_scope}[previous_line]]')
                     exec(f'namespace_nest{current_scope}.__dict__.pop(previous_line)')
-                    exec(f'namespace_nest{current_scope}[plural].append(namespace(dict()))')
+                    exec(f'namespace_nest{current_scope}[plural].append(new_namespace)')
                     current_scope = scope([*current_scope.strings, plural, 1]) # why isn't this a method?
                 elif plural in current_keys: # APPEND plural
                     current_scope.add(plural)
-                    exec(f"namespace_nest{current_scope}.append(namespace(dict()))")
+                    exec(f"namespace_nest{current_scope}.append(new_namespace)")
                     current_scope.add(len(eval(f'namespace_nest{current_scope}')) - 1)
                 else: # NEW singular
                     current_scope.add(previous_line)
-                    exec(f'namespace_nest{current_scope} = namespace(dict())')
+                    exec(f'namespace_nest{current_scope} = new_namespace')
             elif line == '}': # END declaration
                 current_scope.reduce(1)
             elif '" "' in line: # KEY VALUE
@@ -162,6 +163,8 @@ are generated approximately one line at a time'''
         elif isinstance(value, list): # collection of plurals
             key = singularise(key)
         else: # key-value pair
+            if key == '_line':
+                continue
             yield f'{tabs}"{key}" "{value}"\n'
             continue
         for item in value:
