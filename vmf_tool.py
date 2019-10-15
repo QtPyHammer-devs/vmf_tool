@@ -218,7 +218,26 @@ if __name__ == "__main__":
 ##        print(f'import took {time_taken:.3f} seconds')
 ##        times.append(time_taken)
 ##    print(f'average time: {sum(times) / 16:.3f}')
-    pass
+    
+    # "BasePolyForPlane: no axis found" debug
+    vmf = namespace_from(open('mapsrc/???.vmf'))
+    import itertools
+    sides = itertools.chain(*[solid.sides for solid in vmf.world.solids])
+    plane = lambda s: [(*map(float, P[1:].rstrip(")").split()),) for P in s.split(") ")]
+    def zero_plane(side):
+        try:
+            A, B, C = plane(side.plane)
+            if A == B == C:
+                print(f"@ line #{side._line}")
+                print(''.join(lines_from(side)))
+                print("-" * 80)
+        except: # "-nan(ind)" in plane or something else funky
+            print(f"@ line #{side._line}")
+            print(''.join(lines_from(side)))
+            print("-" * 80)
+    for side in sides:
+        zero_plane(side)
+    print("Done !")
 
     # filter(lambda x: x['material'] != 'TOOLS/TOOLSNODRAW' and x['material'] != 'TOOLS/TOOLSSKYBOX', all_sides)
     # [e['classname'] for e in vmf.dict['entities']]
