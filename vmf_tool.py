@@ -2,6 +2,7 @@
 # TODO: Functions for handling the horrible visgroup system
 # e.g. "visgroupid" "7"\n"visgroupid" "8" = {'visgroupid': ['7', '8']}
 import io
+import re
 import textwrap
 
 
@@ -125,20 +126,22 @@ class scope:
                 target[tier] = value # could be creating this value
             else:
                 target = target[tier]
+
+
+# REGULAR EXPRESSIONS
+re_closer = "}"
+re_float = "-?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?"
+re_opener = "{"
+re_plane = '^[ \t]+"plane" "((\(%s ?){3}\) ?){3}"' % re_float # BROKEN
+re_quoted = '("([^"]|"")*")'
     
 
-def namespace_from(text_file):
+def parse_lines(iterable):
     """String or .vmf file to nested namespace"""
-    if isinstance(text_file, io.TextIOWrapper):
-        file_iter = text_file.readlines()
-    elif isinstance(text_file, str):
-        file_iter = text_file.split('\n')
-    else:
-        raise RuntimeError("Cannot construct from {}!".format(type(text_file)))
     namespace_nest = namespace({})
     current_scope = scope([])
     previous_line = ''
-    for line_number, line in enumerate(file_iter):
+    for line_number, line in enumerate(iterable):
         try:
             new_namespace = namespace({'_line': line_number})
             line = line.rstrip('\n')
@@ -177,25 +180,13 @@ def namespace_from(text_file):
     return namespace_nest
 
 
-def dict_from(namespace_nest):
-    out = dict()
-    for key, value in namespace_nest.__dict__.items():
-        if isinstance(value, namespace):
-            out[key] = dict_from(value)
-        elif isinstance(value, list):
-            out[key] = [dict_from(i) for i in value]
-        else:
-            out[key] = value
-    return out
-
-
 def lines_from(_dict, tab_depth=0): # rethink & refactor
     """Takes a nested dictionary (which may also contain lists, but not tuples)
 from this a series of strings resembling valve's text format used in .vmf files
 are generated approximately one line at a time"""
     tabs = '\t' * tab_depth
     for key, value in _dict.items():
-        if isinstance(value, (dict, namespace)): # another layer
+        if isinstance(value, (dict, namespace)): # another nest
             value = (value,)
         elif isinstance(value, list): # collection of plurals
             key = singularise(key)
@@ -205,16 +196,17 @@ are generated approximately one line at a time"""
             yield """{}"{}" "{}"\n""".format(tabs, key, value)
             continue
         for item in value:
-            yield """{}{}\n{}""".format(tabs, key, tabs) + "{\n" # open into the next layer
+            yield """{}{}\n{}""".format(tabs, key, tabs) + "{\n" # go deeper
             for line in lines_from(item, tab_depth + 1): # recurse down
                 yield line
     if tab_depth > 0:
-        yield "\t" * (tab_depth - 1) + "}\n" # close the layer
+        yield "\t" * (tab_depth - 1) + "}\n" # close the plural index / namespace
 
 
-def export(_dict, outfile):
+def export(nest, outfile):
     """Don't forget to close the file afterwards!"""
     print("Exporting {} ... ".format(outfile.name), end="")
-    for line in lines_from(_dict): # using a buffer to write in chunks may be wise
-        outfile.write(line) # ''.join([line for line in lines_from(_dict)]) also works
+    for line in lines_from(nest):
+        outfile.write(line) # writing one line at a time seems wasteful
+        # ''.join([line for line in lines_from(_dict)]) also works
     print("Done!")
