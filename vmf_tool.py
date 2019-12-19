@@ -4,6 +4,7 @@
 import io
 import textwrap
 
+
 def pluralise(word):
     if word.endswith('f'): # self -> selves
         return word[:-1] + 'ves'
@@ -13,6 +14,7 @@ def pluralise(word):
         return word[:-2] + 'ices'
     else: # side -> sides
         return word + 's'
+
 
 def singularise(word):
     if word.endswith('ves'): # self <- selves
@@ -27,38 +29,103 @@ def singularise(word):
     else:
         return word # assume word is already singular
 
-class scope:
-    """Handles a string used to index a multi-dimensional dictionary, correctly reducing nested lists of dictionaries"""
-    def __init__(self, strings=[]):
-        self.strings = strings
+
+class namespace: # VMF COULD OVERLOAD METHODS
+    """Nested Dicts -> Nested Objects"""
+    def __init__(self, nested_dict=dict()):
+        for key, value in nested_dict.items() if isinstance(nested_dict, dict) else nested_dict.__dict__.items():
+            if isinstance(value, dict):
+                self[key] = namespace(value)
+            elif isinstance(value, list):
+                self[key] = [namespace(i) for i in value]
+            else:
+                self[key] = value
+
+    def __setitem__(self, index, value):
+        setattr(self, str(index), value)
+
+    def __getitem__(self, index):
+        return self.__dict__[str(index)]
+
+    def __iter__(self):
+        return iter(self.__dict__.keys())
 
     def __len__(self):
-        """Returns depth, ignoring plural indexes"""
-        return len(filter(lambda x: isinstance(x, str), self.strings))
+        return len(self.__dict__.keys())
 
     def __repr__(self):
-        """Returns scope as a string that can index a deep dictionary"""
-        scope_string = ''
-        for string in self.strings:
-            if isinstance(string, str):
-                scope_string += "['{}']".format(string)
-            elif isinstance(string, int):
-                scope_string += "[{}]".format(string)
-        return scope_string
+        attrs = []
+        for attr_name, attr in self.items():
+            if " " in attr_name:
+                attr_name = "{}".format(attr_name)
+            attr_string = "{}: {}".format(attr_name, type(attr))
+            attrs.append(attr_string)
+        return "<namespace({})>".format(", ".join(attrs))
 
-    def add(self, new):
-        self.strings.append(new)
+    def items(self):
+        for k, v in self.__dict__.items():
+            yield (k, v)
 
-    def reduce(self, count):
-        for i in range(count):
-            try:
-                if isinstance(self.strings[-1], int):
-                    self.strings = self.strings[:-2]
+
+class scope:
+    """Array of indices into a nested array"""
+    def __init__(self, tiers=[]):
+        self.tiers = tiers
+
+    def __repr__(self):
+        repr_strings = []
+        for tier in self.tiers:
+            if isinstance(tier, str):
+                if " " in tier or tier[0].lower() not in "abcdefghijklmnopqrstuvwxyz":
+                    repr_strings.append("['{}']".format(tier))
                 else:
-                    self.strings = self.strings[:-1]
-            except:
-                break
+                    repr_strings.append(".{}".format(tier))
+            else:
+                repr_strings.append("[{}]".format(tier))
+        return "".join(repr_string)
 
+    def add(self, tier):
+        """Go a layer deeper"""
+        self.tiers.append(tier)
+
+    def increment(self): # does not check if tiers[-1] is an integer
+        self.tiers[-1] += 1
+
+    def get_from(self, nest):
+        """Gets the item stored in nest which this scope points at"""
+        target = nest
+        for tier in self.tiers:
+            target = target[tier]
+        return target
+
+    def retreat(self):
+        """Retreat up 1 tier (2 tiers for plurals)"""
+        popped = self.tiers.pop(-1)
+        if isinstance(popped, int):
+            self.tiers.pop(-1)
+
+    def remove_from(self, nest): # used for changing singulars into plurals
+        """Delete the item stored in nest which this scope points at"""
+        target = nest
+        for i, tier in enumerate(self.tiers):
+            if i == len(self.tiers) - 1: # must set from tier above
+                target.pop(tier)
+            else:
+                target = target[tier]
+        # stop pointing at deleted index
+        self.retreat()
+        # unsure what will happen when deleting an item from a plural
+        # also unsre what SHOULD happen when deleting an item from a plural
+
+    def set_in(self, nest, value):
+        """Sets the item stored in nest which this scope points at to value"""
+        target = nest
+        for i, tier in enumerate(self.tiers):
+            if i == len(self.tiers) - 1: # must set from tier above
+                target[tier] = value # could be creating this value
+            else:
+                target = target[tier]
+    
 
 def namespace_from(text_file):
     """String or .vmf file to nested namespace"""
@@ -67,7 +134,7 @@ def namespace_from(text_file):
     elif isinstance(text_file, str):
         file_iter = text_file.split('\n')
     else:
-        raise RuntimeError("Cannot construct dictionary from {}!".format(type(text_file)))
+        raise RuntimeError("Cannot construct from {}!".format(type(text_file)))
     namespace_nest = namespace({})
     current_scope = scope([])
     previous_line = ''
@@ -108,38 +175,6 @@ def namespace_from(text_file):
             print("error on line {0:04d}:\n{1}\n{2}".format(line_number, line, previous_line))
             raise exc
     return namespace_nest
-
-
-class namespace: # DUNDER METHODS ONLY!
-    """Nested Dicts -> Nested Objects"""
-    def __init__(self, nested_dict=dict()):
-        for key, value in nested_dict.items() if isinstance(nested_dict, dict) else nested_dict.__dict__.items():
-            if isinstance(value, dict):
-                self[key] = namespace(value)
-            elif isinstance(value, list):
-                self[key] = [namespace(i) for i in value]
-            else:
-                self[key] = value
-
-    def __setitem__(self, index, value):
-        setattr(self, str(index), value)
-
-    def __getitem__(self, index):
-        return self.__dict__[str(index)]
-
-    def __iter__(self):
-        return iter(self.__dict__)
-
-    def __len__(self):
-        return len(self.__dict__.keys())
-
-    def __repr__(self):
-        attrs = [a if ' ' not in a else '"{}"'.format(a) for a in self.__dict__.keys()]
-        return "namespace([{}])".format(", ".join(attrs))
-
-    def items(self): # fix for lines_from
-        for k, v in self.__dict__.items():
-            yield (k, v)
 
 
 def dict_from(namespace_nest):
