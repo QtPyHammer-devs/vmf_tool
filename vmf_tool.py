@@ -1,9 +1,6 @@
 """Can unpack a variety of Valve text-formats including .vmt & the Client Schema"""
 # TODO: Functions for handling the horrible visgroup system
 # e.g. "visgroupid" "7"\n"visgroupid" "8" = {'visgroupid': ['7', '8']}
-import io
-import re
-import textwrap
 
 
 def pluralise(word):
@@ -59,7 +56,7 @@ class namespace: # VMF COULD OVERLOAD METHODS
         for attr_name, attr in self.items():
             if " " in attr_name:
                 attr_name = "{}".format(attr_name)
-            attr_string = "{}: {}".format(attr_name, type(attr))
+            attr_string = "{}: {}".format(attr_name, attr.__class__.__name__)
             attrs.append(attr_string)
         return "<namespace({})>".format(", ".join(attrs))
 
@@ -126,58 +123,51 @@ class scope:
                 target[tier] = value # could be creating this value
             else:
                 target = target[tier]
-
-
-# REGULAR EXPRESSIONS
-re_closer = "}"
-re_float = "-?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?"
-re_opener = "{"
-re_plane = '^[ \t]+"plane" "((\(%s ?){3}\) ?){3}"' % re_float # BROKEN
-re_quoted = '("([^"]|"")*")'
     
 
 def parse_lines(iterable):
     """String or .vmf file to nested namespace"""
-    namespace_nest = namespace({})
+    nest = namespace({})
     current_scope = scope([])
     previous_line = ''
     for line_number, line in enumerate(iterable):
         try:
             new_namespace = namespace({'_line': line_number})
-            line = line.rstrip('\n')
-            line = textwrap.shorten(line, width=2000) # cleanup spacing, broke at 200+ chars, not the right tool for the job
-            if line == '' or line.startswith('//'): # ignore blank / comments
+            current_target = current_scope.get_from(nest)
+            line = line.strip()  # cleanup spacing
+            if line == "" or line.startswith("//"): # ignore blank / comments
                 continue
-            elif line =='{': # START declaration
-                current_keys = eval("namespace_nest{}.__dict__.keys()".format(current_scope))
+            elif line =="{": # START declaration
+                current_keys = current_target.__dict__.keys()
                 plural = pluralise(previous_line)
                 if previous_line in current_keys: # NEW plural
-                    exec("namespace_nest{}[plural] = [namespace_nest{}[previous_line]]".format(current_scope, current_scope))
-                    exec("namespace_nest{}.__dict__.pop(previous_line)".format(current_scope))
-                    exec("namespace_nest{}[plural].append(new_namespace)".format(current_scope))
-                    current_scope = scope([*current_scope.strings, plural, 1]) # why isn't this a method?
-                elif plural in current_keys: # APPEND plural
+                    current_target[plural] = [current_target[previous_line]] # create plural from old singular
+                    current_target.__dict__.pop(previous_line) # delete singular
+                    current_target[plural].append(new_namespace) # second entry
                     current_scope.add(plural)
-                    exec("namespace_nest{}.append(new_namespace)".format(current_scope))
-                    current_scope.add(len(eval("namespace_nest{}".format(current_scope))) - 1)
+                    current_scope.add(1) # point at new_namespace
+                elif plural in current_keys: # APPEND plural
+                    current_scope.add(plural) # point at plural
+                    current_scope.get_from(nest).append(new_namespace)
+                    current_scope.add(len(current_scope.get_from(nest)) - 1) # current index in plural
                 else: # NEW singular
                     current_scope.add(previous_line)
-                    exec("namespace_nest{} = new_namespace".format(current_scope))
+                    current_scope.set_in(nest, new_namespace)
             elif line == '}': # END declaration
-                current_scope.reduce(1)
+                current_scope.retreat()
             elif '" "' in line: # KEY VALUE
                 key, value = line.split('" "')
                 key = key.lstrip('"')
                 value = value.rstrip('"')
-                exec("namespace_nest{}[key] = value".format(current_scope))
+                current_target[key] = value
             elif line.count(' ') == 1:
                 key, value = line.split()
-                exec("namespace_nest{}[key] = value".format(current_scope))
+                current_target[key] = value
             previous_line = line.strip('"')
         except Exception as exc:
-            print("error on line {0:04d}:\n{1}\n{2}".format(line_number, line, previous_line))
+            print("error on line {0:04d}:\n{1}\n{2}".format(line_number, previous_line, line))
             raise exc
-    return namespace_nest
+    return nest
 
 
 def lines_from(_dict, tab_depth=0): # rethink & refactor
