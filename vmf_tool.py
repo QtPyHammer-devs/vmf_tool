@@ -83,7 +83,7 @@ class scope:
                     repr_strings.append(".{}".format(tier))
             else:
                 repr_strings.append("[{}]".format(tier))
-        return "".join(repr_string)
+        return "".join(repr_strings)
 
     def add(self, tier):
         """Go a layer deeper"""

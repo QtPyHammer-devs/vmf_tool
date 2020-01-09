@@ -45,10 +45,12 @@ if __name__ == "__main__":
     import sys
     sys.path.insert(0, '../')
     import vmf_tool
-    base = vmf_tool.vmf(open('../mapsrc/blank.vmf'))
+    with open('../mapsrc/blank.vmf') as base_file:
+        base = vmf_tool.parse_lines(base_file.readlines())
     for filepath in sys.argv[1:]:
         base.dict['world']['solids'] = obj_solids(filepath)
-        base.export(open(f'{filepath[:-4]}.vmf', 'w'))
+        with open(f'{filepath}.vmf', 'w') as out_file:
+            export(base, out_file)
 
     ##TEST    
     # hemisphere = obj_solids('hemisphere.obj')
