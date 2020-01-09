@@ -1,11 +1,4 @@
-## TODO: split concave solids at most concave points
-## TODO: efficient use of solids (as many sides as possible)
-## TODO: decent auto-generated texture-vecs (match to obj?)
-## TODO: port test .objs into modified mapsrc/blank.vmf
-## TODO: move towards group-object oriented system
-# multi-res scultping may result in strange poles and create issues
-# need to keep displacement form but map creases (without warping uvs too much)
-# lerp & merge to re-form into something displacement-like
+# To be replaced by tools in snake-biscuits/QtPyHammer & BlendHammer
 import itertools
 import vector
 
@@ -190,26 +183,14 @@ def generate_solid(rows):
     # extrude other 5 faces back from disp by grid_size units
     # final face is reversed disp A B & C
     # ENSURE DISPLACEMENT IS ALWAYS SIDE 0
-
-
-#TODO: UI
-#--- Tkinter for now
     
 
 if __name__ == "__main__":
     import sys
     sys.path.insert(0, '../')
     import vmf_tool
-    # base = vmf(open('../mapsrc/blank.vmf'))
-    for filepath in sys.argv[1:]:
-        ## convert objs into displacements, creating files for each
-        # out_vmf = base
-        # outfile = open(f'{filepath[:-4]}.vmf', 'w')
-        ## generate solids, and inject into vmf
-        ...
-
     ### INJECTS DISPLACEMENT DATA INTO A DISPLACEMENT MADE IN HAMMER ###
-    vertices, indices = obj_indexed_vertices('power2_disp_quads.obj')
+    vertices, indices = obj_indexed_vertices("power2_disp_quads.obj")
     rows = quads_to_rows(vertices, indices)
     # make rows relative to barymetric coords
     # indices > vertices > vectors
@@ -230,16 +211,29 @@ if __name__ == "__main__":
             bary_point = vector.lerp(A + (AD * x), B + (BC * x), y)
             point = vertices[index] - bary_point
             vector_rows[-1].append(point)
-           
-    base_vmf = vmf_tool.vmf_to_dict(open('../mapsrc/test_disp.vmf'))
-    dispinfo = vmf_tool.scope(['world', 'solid', 'sides', 0, 'dispinfo']) # solid 0, side 0
-    exec(f"base_vmf{dispinfo}['startposition'] = '[{A.x} {A.y} {A.z}]'")
+
+    with open("../mapsrc/test_disp.vmf") as target_file:
+        base_vmf = vmf_tool.parse_lines(target_file.readlines())
+    scope = vmf_tool.scope(["world", "solid", "sides", 0, "dispinfo"])
+    # ^ solid 0, side 0
+    scope.add("startposition")
+    dispinfo.set_in(base_vmf, f"[{A.x} {A.y} {A.z}]")
+    scope.retreat()
     for i, row in enumerate(vector_rows):
         row_distances = [v.magnitude() for v in row] # 1 per vert
         row_normals = [v / w if w != 0 else vector.vec3() for v, w in zip(row, row_distances)] # 3 per vert
-        row_normals = [*map(lambda v: f'{v}', row_normals)]
+        row_normals = [*map(lambda v: f"{v}", row_normals)]
         row_distances = [*map(str, row_distances)]
-        exec(f"base_vmf{dispinfo}['distances']['row{i}'] = ' '.join(row_distances)")
-        exec(f"base_vmf{dispinfo}['normals']['row{i}'] = ' '.join(row_normals)")
+        scope.add("distances")
+        scope.add(f"row{i}")
+        dispinfo.set_in(base_vmf, " ".join(row_distances))
+        scope.retreat()
+        scope.retreat()
+        scope.add("normals")
+        scope.add(f"row{i}")
+        scope.set_in(base_vmf, " ".join(row_normals))
+        scope.retreat()
+        scope.retreat()
 
-    vmf_tool.export(base_vmf, open('power2_obj.vmf', 'w'))
+    with open("objs/power2_obj.vmf", "w") as out_file:
+        vmf_tool.export(base_vmf, out_file)
