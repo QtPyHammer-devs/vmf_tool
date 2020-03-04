@@ -2,15 +2,14 @@ def obj_solids(filepath): # split by object and group
     """turns faces into sides of a .vmf solid"""
     file = open(filepath)
     v  = []
-    side_id = 0
-    brush = {"sides": [], "editor": {
-                 "color": "255 0 255", "visgroupshown": "1",
+    _id = 1
+    brush = {"sides": [], "editor":
+                {"color": "255 0 255", "visgroupshown": "1",
                  "visgroupautoshown": "1"}}
-    brush_id = 0
     solids = []
     solids.append(brush.copy())
-    solids[-1]["id"] = brush_id
-    brush_id += 1
+    solids[-1]["id"] = _id
+    _id += 1
     for line in file.readlines():
         line = line.rstrip("\n")
         if line.startswith("v"):
@@ -22,9 +21,9 @@ def obj_solids(filepath): # split by object and group
                 vertex = v[int(point.split("/")[0]) - 1]
                 plane.append(" ".join([str(x) for x in vertex]))
             plane = reversed(plane)
-            side_id += 1
+            _id += 1
             solids[-1]["sides"].append({
-                "id": side_id,
+                "id": _id,
                 "plane": "(" + ") (".join(plane) + ")",
                 "material": "TOOLS/TOOLSNODRAW",
                 "uaxis": "[0 -1 0 0] 0.25",
@@ -32,10 +31,10 @@ def obj_solids(filepath): # split by object and group
 		"rotation": "0",
 		"lightmapscale": "16",
 		"smoothing_groups": "0"})
-        elif line.startswith("o"):
+        elif line.startswith("o"): # new object, new brush
             solids.append(brush.copy())
-            solids[-1]["id"] = brush_id
-            brush_id += 1
+            solids[-1]["id"] = _id
+            _id += 1
     if len(solids[0]["sides"]) == 0:
         solids = solids[1:]
     file.close()
@@ -53,7 +52,7 @@ if __name__ == "__main__":
         with open(filepath + ".vmf", "w") as out_file:
             vmf_tool.export(base, out_file)
 
-    # TEST
-    base.world.solids = obj_solids("objs/hemisphere.obj")
-    with open("vmfs/hemisphere.vmf", "w") as out_file:
-        vmf_tool.export(base, out_file)
+##    # TEST
+##    base.world.solids = obj_solids("objs/hemisphere.obj")
+##    with open("vmfs/hemisphere.vmf", "w") as out_file:
+##        vmf_tool.export(base, out_file)
