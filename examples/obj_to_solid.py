@@ -10,14 +10,14 @@ def obj_solids(filepath, material=nodraw):
     brush = {"sides": [], "editor":
                 {"color": "255 0 255", "visgroupshown": "1",
                  "visgroupautoshown": "1"}}
-    current_brush = None
+    current_brush = brush.copy()
     solids = []
     _id += 1
     for line in file.readlines():
         line = line.rstrip("\n")
         if line.startswith("o"): # new object, new brush
-            if current_brush != None:
-                solids.append(current_brush)\
+            if current_brush != brush.copy():
+                solids.append(current_brush)
             current_brush = brush.copy()
             current_brush["id"] = _id
             current_brush["sides"] = []
@@ -41,6 +41,7 @@ def obj_solids(filepath, material=nodraw):
 		"rotation": "0",
 		"lightmapscale": "16",
 		"smoothing_groups": "0"})
+    solids.append(current_brush)
     file.close()
     return solids
 
