@@ -1,2 +1,0 @@
-add tool materials to 2007_materials.csv
-remove cubemaps from 2007_materials.csv
