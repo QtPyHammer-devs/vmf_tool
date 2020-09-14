@@ -1,6 +1,6 @@
 """https://github.com/snake-biscuits/vmf_tool"""
 from .parser import parse, text_from
-from ..solid import solid
+from .brushes import solid
 
 
 class vmf:
