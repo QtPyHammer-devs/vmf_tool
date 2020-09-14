@@ -55,12 +55,11 @@ def parse(string_or_file):
 def text_from(_dict, tab_depth=0): # rethink & refactor
     """Nested namespaces / dicts --> text resembling a .vmf"""
     out = []
-    tabs = '\t' * tab_depth
+    tabs = "\t" * tab_depth
     for key, value in _dict.items():
-        if isinstance(value, str):
-            if key == "_line":
-                continue
-            # key-value pair
+        if key == "_line":
+            continue
+        elif isinstance(value, str): # key-value pair
             out.append(f"""{tabs}"{key}" "{value}"\n""")
             continue
         elif isinstance(value, (dict, namespace)): # another nest
@@ -74,7 +73,7 @@ def text_from(_dict, tab_depth=0): # rethink & refactor
             out.append(text_from(item, tab_depth + 1))
     if tab_depth > 0: # close the plural index / namespace
         out.append("\t" * (tab_depth - 1) + "}\n")
-    return "\n".join(out)
+    return "".join(out)
 
 
 class scope:
@@ -87,8 +86,8 @@ class scope:
         for tier in self.tiers:
             if isinstance(tier, str):
                 if " " in tier or tier[0].lower() not in "abcdefghijklmnopqrstuvwxyz":
+                    # ^ use regex to check tier is a valid name for an attribute
                     # should spaces be replaced with underscores?
-                    # use regex to check tier is a valid name for an attribute
                     repr_strings.append("['{}']".format(tier))
                 else:
                     repr_strings.append(".{}".format(tier))
