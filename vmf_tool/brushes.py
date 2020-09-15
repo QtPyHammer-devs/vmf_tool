@@ -18,7 +18,7 @@ def clip(points, plane):
     normal, distance = plane
     split_verts = {"back": [], "front": []}
     for i, A in enumerate(points):
-        B = poly[(i + 1) % len(points)]
+        B = points[(i + 1) % len(points)]
         A_distance = vector.dot(normal, A) - distance
         B_distance = vector.dot(normal, B) - distance
         A_behind = round(A_distance, 6) < 0
