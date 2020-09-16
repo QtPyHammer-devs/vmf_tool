@@ -1,6 +1,6 @@
 """https://github.com/snake-biscuits/vmf_tool"""
 from . import brushes
 from . import parser
-from .vmf import *
+from .vmf import vmf
 
 __all__ = ["brushes", "parser", "vmf"]
