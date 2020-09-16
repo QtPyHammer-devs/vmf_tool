@@ -10,12 +10,12 @@ def parse(string_or_file):
         file = io.StringIO(string_or_file)  # make string file-like
     else:  # it's a file
         file = string_or_file
-    nest = namespace({})
-    current_scope = scope([])
+    nest = Namespace({})
+    current_scope = Scope([])
     previous_line = ""
     for line_number, line in enumerate(file.readlines()):
         try:
-            new_namespace = namespace({"_line": line_number})
+            new_namespace = Namespace({"_line": line_number})
             current_target = current_scope.get_from(nest)
             line = line.strip()  # cleanup spacing
             if line == "" or line.startswith("//"):  # ignore blank / comments
@@ -77,7 +77,7 @@ def text_from(_dict, tab_depth=0):  # rethink & refactor
     return "".join(out)
 
 
-class scope:
+class Scope:
     """Array of indices into a nested array"""
     def __init__(self, tiers=[]):
         self.tiers = tiers
@@ -139,7 +139,7 @@ class scope:
                 target = target[tier]
 
 
-class namespace:  # this name doesn't tell me what this thing does
+class Namespace:  # this name doesn't tell me what this thing does
     def __init__(self, _dict=dict()):
         for key, value in _dict.items() if isinstance(_dict, dict) else _dict.__dict__.items():
             if isinstance(value, dict):
@@ -168,7 +168,7 @@ class namespace:  # this name doesn't tell me what this thing does
                 attr_name = "{}".format(attr_name)
             attr_string = "{}: {}".format(attr_name, attr.__class__.__name__)
             attrs.append(attr_string)
-        return "<namespace({})>".format(", ".join(attrs))
+        return "<Namespace({})>".format(", ".join(attrs))
 
     def items(self):
         for k, v in self.__dict__.items():

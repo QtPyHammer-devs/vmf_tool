@@ -2,10 +2,10 @@ import os
 import shutil
 
 from .parser import parse, text_from
-from .brushes import solid
+from .brushes import Solid
 
 
-class vmf:
+class Vmf:
     def __init__(self, filename):
         # how would a loading bar measure progress here?
         self.filename = filename
@@ -54,7 +54,7 @@ class vmf:
         # ^ brush.id: brush
         for i, brush_id in enumerate(self._brushes):
             try:
-                brush = solid(self._brushes[brush_id])
+                brush = Solid(self._brushes[brush_id])
             except Exception as exc:
                 self.import_errors.append("\n".join(
                     [f"Solid #{i} id: {brush_id} is invalid.",

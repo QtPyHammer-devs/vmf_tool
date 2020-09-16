@@ -16,7 +16,7 @@ def plane_of(A, B, C):
     return (normal, vector.dot(normal, A))
 
 
-class texture_vector:  # pairing uaxis and vaxis together would be nice
+class TextureVector:  # pairing uaxis and vaxis together would be nice
     """Takes uaxis or vaxis"""
     def __init__(self, string):
         """'[X Y Z Offset] Scale' --> self.vector, self.offset, self.scale"""
@@ -26,7 +26,7 @@ class texture_vector:  # pairing uaxis and vaxis together would be nice
         self.scale = float(re.search(r"(?<=\ )[^\ ]+$", string).group(0))
 
     def linear_pos(self, position):
-        """half a uv, need 2 texture_vectors for the full uv"""
+        """half a uv, need 2 TextureVectors for the full uv"""
         return (vector.dot(position, self.vector) + self.offset) / self.scale
 
     def align_to_normal(self, normal):
@@ -35,23 +35,23 @@ class texture_vector:  # pairing uaxis and vaxis together would be nice
     # def wrap(self, plane):  # alt + right click
 
 
-class face:
-    def __init__(self, namespace):
-        self.id = int(namespace.id)
-        self.base_triangle = triangle_of(namespace.plane)
+class Face:
+    def __init__(self, _namespace):
+        self.id = int(_namespace.id)
+        self.base_triangle = triangle_of(_namespace.plane)
         self.plane = plane_of(*self.base_triangle)  # vec3 normal, float distance
-        self.material = namespace.material
-        self.uaxis = texture_vector(namespace.uaxis)
-        self.vaxis = texture_vector(namespace.vaxis)
-        self.rotation = float(namespace.rotation)
-        self.lightmap_scale = int(namespace.lightmapscale)
-        self.smoothing_groups = int(namespace.smoothing_groups)
+        self.material = _namespace.material
+        self.uaxis = TextureVector(_namespace.uaxis)
+        self.vaxis = TextureVector(_namespace.vaxis)
+        self.rotation = float(_namespace.rotation)
+        self.lightmap_scale = int(_namespace.lightmapscale)
+        self.smoothing_groups = int(_namespace.smoothing_groups)
 
         self.polygon = []
-        # ^ calculated by clipping against other planes in solid.__init__
+        # ^ calculated by clipping against other planes in Solid.__init__
 
-        if hasattr(namespace, "dispinfo"):
-            self.displacement = displacement(namespace.dispinfo)
+        if hasattr(_namespace, "dispinfo"):
+            self.displacement = Displacement(_namespace.dispinfo)
 
     def uv_at(self, position):
         u = self.uaxis.linear_pos(position)
@@ -59,7 +59,7 @@ class face:
         return (u, v)
 
 
-class displacement:
+class Displacement:
     def __init__(self, namespace):
         self.power = int(namespace.power)
         self.start = tuple(map(float, re.findall(r"(?<=[\[\ ]).+?(?=[\ \]])", namespace.startposition)))
@@ -95,7 +95,7 @@ class displacement:
         raise NotImplementedError()
 
 
-class solid:
+class Solid:
     __slots__ = ("colour", "id", "is_displacement", "faces", "face_ids", "source")
 
     def __init__(self, namespace):
@@ -104,8 +104,7 @@ class solid:
         self.id = int(self.source.id)
         self.colour = tuple(int(x) / 255 for x in namespace.editor.color.split())
 
-        global face
-        self.faces = list(map(face, self.source.sides))
+        self.faces = list(map(Face, self.source.sides))
         self.face_ids = [f.id for f in self.faces]
         # ^ for lookup by id
         if any([hasattr(f, "displacement") for f in self.faces]):
@@ -138,7 +137,7 @@ class solid:
                 raise RuntimeError("{self.id} {f.id} invalid displacement")
 
     def __repr__(self):
-        return f"<solid id={self.id}, {len(self.faces)} sides>"
+        return f"<Solid id={self.id}, {len(self.faces)} sides>"
 
     def translate(self, offset):
         """offset is a vector"""
