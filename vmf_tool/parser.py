@@ -176,25 +176,25 @@ class namespace:  # this name doesn't tell me what this thing does
 
 
 def pluralise(word):
-    if word.endswith('f'):  # self -> selves
-        return word[:-1] + 'ves'
-    elif word.endswith('y'):  # body -> bodies
-        return word[:-1] + 'ies'
-    elif word.endswith('ex'):  # vertex -> vertices
-        return word[:-2] + 'ices'
+    if word.endswith("f"):  # self -> selves
+        return word[:-1] + "ves"
+    elif word.endswith("y"):  # body -> bodies
+        return word[:-1] + "ies"
+    elif word.endswith("ex"):  # vertex -> vertices
+        return word[:-2] + "ices"
     else:  # side -> sides
-        return word + 's'
+        return word + "s"
 
 
 def singularise(word):
-    if word.endswith('ves'):  # self <- selves
-        return word[:-3] + 'f'
-    elif word.endswith('ies'):  # body <- bodies
-        return word[:-3] + 'y'
-    elif word.endswith('ices'):  # vertex <- vertices
-        return word[:-4] + 'ex'
+    if word.endswith("ves"):  # self <- selves
+        return word[:-3] + "f"
+    elif word.endswith("ies"):  # body <- bodies
+        return word[:-3] + "y"
+    elif word.endswith("ices"):  # vertex <- vertices
+        return word[:-4] + "ex"
     # in the face of ambiguity, refuse the temptation to guess
-    elif word.endswith('s'):  # side <- sides
+    elif word.endswith("s"):  # side <- sides
         return word[:-1]
     else:
         return word  # assume word is already singular
