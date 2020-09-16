@@ -8,7 +8,7 @@ class TestVmfMethods(unittest.TestCase):
 
     def setUp(self):
         self.source_filename = "tests/mapsrc/test2.vmf"
-        self.vmf = vmf_tool.vmf(self.source_filename)
+        self.vmf = vmf_tool.Vmf(self.source_filename)
 
     def test_save_to_file(self):
         folder = os.path.dirname(self.source_filename)
