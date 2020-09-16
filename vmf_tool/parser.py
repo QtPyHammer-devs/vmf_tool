@@ -6,9 +6,9 @@ def parse(string_or_file):
     """String or .vmf file to nested namespace"""
     if not isinstance(string_or_file, (str, io.TextIOWrapper, io.StringIO)):
         raise RuntimeError(f"{string_or_file} is neither a string nor a file")
-    if isinstance(string_or_file, str):
-        file = io.StringIO(string_or_file) # make string file-like
-    else:
+    elif isinstance(string_or_file, str):
+        file = io.StringIO(string_or_file)  # make string file-like
+    else:  # it's a file
         file = string_or_file
     nest = namespace({})
     current_scope = scope([])
@@ -20,11 +20,11 @@ def parse(string_or_file):
             line = line.strip()  # cleanup spacing
             if line == "" or line.startswith("//"):  # ignore blank / comments
                 continue
-            elif line == "{": # START declaration
+            elif line == "{":  # START declaration
                 current_keys = current_target.__dict__.keys()
                 plural = pluralise(previous_line)
                 if previous_line in current_keys:  # NEW plural
-                    current_target[plural] = [current_target[previous_line]] # create plural from old singular
+                    current_target[plural] = [current_target[previous_line]]  # create plural from old singular
                     current_target.__dict__.pop(previous_line)  # delete singular
                     current_target[plural].append(new_namespace)  # second entry
                     current_scope.add(plural)
@@ -43,10 +43,10 @@ def parse(string_or_file):
                 key = key.lstrip('"')
                 value = value.rstrip('"')
                 current_target[key] = value
-            elif line.count(" ") == 1: # KEY VALUE
+            elif line.count(" ") == 1:  # KEY VALUE
                 key, value = line.split()
                 current_target[key] = value
-            previous_line = line.strip('"') # for naming scope, if line == "{"
+            previous_line = line.strip('"')  # for naming scope, if line == "{"
         except Exception as exc:
             print("error on line {0:04d}:\n{1}\n{2}".format(line_number, previous_line, line))
             raise exc
@@ -184,6 +184,7 @@ def pluralise(word):
         return word[:-2] + 'ices'
     else:  # side -> sides
         return word + 's'
+
 
 def singularise(word):
     if word.endswith('ves'):  # self <- selves

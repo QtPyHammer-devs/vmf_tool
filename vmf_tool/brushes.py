@@ -1,4 +1,3 @@
-import itertools
 import re
 
 from . import vector
@@ -6,7 +5,7 @@ from . import vector
 
 def triangle_of(string):
     """"'(X Y Z) (X Y Z) (X Y Z)' --> (vec3(X, Y, Z), vec3(X, Y, Z), vec3(X, Y, Z))"""
-    points = re.findall("(?<=\().+?(?=\))", string)
+    points = re.findall(r"(?<=\().+?(?=\))", string)
     vector_of = lambda P: vector.vec3(*map(float, P.split(" ")))
     return tuple(map(vector_of, points))
 
@@ -16,13 +15,14 @@ def plane_of(A, B, C):
     return (normal, vector.dot(normal, A))
 
 
-class texture_vector: # pairing uaxis and vaxis together would be nice
+class texture_vector:  # pairing uaxis and vaxis together would be nice
+    """Takes uaxis or vaxis"""
     def __init__(self, string):
         """'[X Y Z Offset] Scale' --> self.vector, self.offset, self.scale"""
-        x, y, z, offset = re.findall("(?<=[\[\ ]).+?(?=[\ \]])", string)
+        x, y, z, offset = re.findall(r"(?<=[\[\ ]).+?(?=[\ \]])", string)
         self.vector = tuple(map(float, [x, y, z]))
         self.offset = float(offset)
-        self.scale = float(re.search("(?<=\ )[^\ ]+$", string).group(0))
+        self.scale = float(re.search(r"(?<=\ )[^\ ]+$", string).group(0))
 
     def linear_pos(self, position):
         """half a uv, need 2 texture_vectors for the full uv"""
@@ -30,15 +30,15 @@ class texture_vector: # pairing uaxis and vaxis together would be nice
 
     def align_to_normal(self, normal):
         raise NotImplementedError()
-    
-    # & a wrapping method for alt+right click
+
+    # def wrap(self, plane):  # alt + right click
 
 
 class face:
     def __init__(self, namespace):
         self.id = int(namespace.id)
         self.base_triangle = triangle_of(namespace.plane)
-        self.plane = plane_of(*self.base_triangle) # vec3 normal, float distance
+        self.plane = plane_of(*self.base_triangle)  # vec3 normal, float distance
         self.material = namespace.material
         self.uaxis = texture_vector(namespace.uaxis)
         self.vaxis = texture_vector(namespace.vaxis)
@@ -61,7 +61,7 @@ class face:
 class displacement:
     def __init__(self, namespace):
         self.power = int(namespace.power)
-        self.start = tuple(map(float, re.findall("(?<=[\[\ ]).+?(?=[\ \]])", namespace.startposition)))
+        self.start = tuple(map(float, re.findall(r"(?<=[\[\ ]).+?(?=[\ \]])", namespace.startposition)))
         # self.flags = int(namespace.flags)
         # self.elevation = int(namespace.elevation)
         # self.subdiv = int(subdiv)
