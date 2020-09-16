@@ -5,11 +5,11 @@ import vmf_tool
 
 
 class TestVmfMethods(unittest.TestCase):
-    
+
     def setUp(self):
         self.source_filename = "tests/mapsrc/test2.vmf"
         self.vmf = vmf_tool.vmf(self.source_filename)
-        
+
     def test_save_to_file(self):
         folder = os.path.dirname(self.source_filename)
         filename = os.path.basename(self.source_filename)
