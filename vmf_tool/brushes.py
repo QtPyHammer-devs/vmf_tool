@@ -135,7 +135,7 @@ class solid:
                 ngon, offcut = clip(ngon, other_f.plane).values()
             self.faces[i].polygon = ngon
             if hasattr(f, "displacement") and len(ngon) != 4:
-                raise RuntimeError("{self.id} {f.id} invalid displacement")  
+                raise RuntimeError("{self.id} {f.id} invalid displacement")
 
     def __repr__(self):
         return f"<solid id={self.id}, {len(self.faces)} sides>"
