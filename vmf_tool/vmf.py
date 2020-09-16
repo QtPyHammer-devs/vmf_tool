@@ -1,3 +1,6 @@
+import os
+import shutil
+
 from .parser import parse, text_from
 from .brushes import solid
 
@@ -59,10 +62,11 @@ class vmf:
         # worldspawn data
 
     def save_to_file(self, filename=None):
-        # requires that the namespace be updated with every change
-        # also requires undo / redo affects the namespace
-        # tl;dr make the namespace up to date with user changes
+        # first, ensure all user edits will be represented in the saved file!
         if filename is None:
             filename = self.filename
+        if os.path.exists(filename):
+            base_filename, ext = os.path.splitext(filename)
+            shutil.copy(filename, f"{base_filename}.vmx")
         with open(filename, "w") as file:
             file.write(text_from(self._namespace))
