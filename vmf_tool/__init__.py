@@ -1,4 +1,4 @@
-"""https://github.com/snake-biscuits/vmf_tool"""
+"""A library for interpreting & editing .vmf files"""
 from . import brushes
 from . import parser
 from .vmf import Vmf
