@@ -138,7 +138,7 @@ class solid:
         
 
     def __repr__(self):
-        return f"<solid {len(self.vertices)} vertices>"
+        return f"<solid id={self.id}, {len(self.faces) sides}>"
 
     def translate(self, offset):
         """offset is a vector"""
