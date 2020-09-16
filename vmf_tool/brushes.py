@@ -64,7 +64,7 @@ class displacement:
         self.start = tuple(map(float, re.findall(r"(?<=[\[\ ]).+?(?=[\ \]])", namespace.startposition)))
         # self.flags = int(namespace.flags)
         # self.elevation = int(namespace.elevation)
-        # self.subdiv = int(subdiv)
+        # self.subdiv = bool(subdiv)
 
         self.normals = []
         self.distances = []
