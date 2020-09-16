@@ -1,4 +1,3 @@
-"""https://github.com/snake-biscuits/vmf_tool"""
 import os
 import shutil
 
