@@ -1,4 +1,5 @@
 import io
+import re
 
 
 def parse(string_or_file):
@@ -85,12 +86,10 @@ class scope:
         repr_strings = []
         for tier in self.tiers:
             if isinstance(tier, str):
-                if " " in tier or tier[0].lower() not in "abcdefghijklmnopqrstuvwxyz":
-                    # ^ use regex to check tier is a valid name for an attribute
-                    # should spaces be replaced with underscores?
-                    repr_strings.append("['{}']".format(tier))
-                else:
+                if re.match("^[A-Za-z_][A-Za-z_0-9]*$", tier):
                     repr_strings.append(".{}".format(tier))
+                else:  # tier is not a valid attribute
+                    repr_strings.append("['{}']".format(tier))
             else:
                 repr_strings.append("[{}]".format(tier))
         return "".join(repr_strings)
