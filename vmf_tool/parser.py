@@ -63,7 +63,7 @@ def text_from(_dict, tab_depth=0):  # rethink & refactor
         elif isinstance(value, str):  # key-value pair
             out.append(f"""{tabs}"{key}" "{value}"\n""")
             continue
-        elif isinstance(value, (dict, namespace)):  # another nest
+        elif isinstance(value, (dict, Namespace)):  # another nest
             value = (value,)
         elif isinstance(value, (list, tuple)):  # collection of plurals
             key = singularise(key)
@@ -143,9 +143,9 @@ class Namespace:  # this name doesn't tell me what this thing does
     def __init__(self, _dict=dict()):
         for key, value in _dict.items() if isinstance(_dict, dict) else _dict.__dict__.items():
             if isinstance(value, dict):
-                self[key] = namespace(value)
+                self[key] = Namespace(value)
             elif isinstance(value, list):
-                self[key] = [namespace(i) for i in value]
+                self[key] = [Namespace(i) for i in value]
             else:
                 self[key] = value
 
