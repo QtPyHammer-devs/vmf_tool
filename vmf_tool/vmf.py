@@ -1,3 +1,4 @@
+"""https://github.com/snake-biscuits/vmf_tool"""
 import os
 import shutil
 
@@ -17,6 +18,7 @@ class vmf:
         self.detail_vbsp = self._namespace.world.detailvbsp
         # ^ TEST to see if modifying these updates the namespace
         # (can we modify self._namespace with an overridden dict.update()?)
+        
         self._brushes = dict()
         # ^ id: brush
         if hasattr(self._namespace.world, "solid"):
@@ -24,6 +26,7 @@ class vmf:
         if hasattr(self._namespace.world, "solids"):
             for brush in self._namespace.world.solids:
                 self._brushes[int(brush.id)] = brush
+                
         self.entities = dict()
         # ^ id: entity
         if hasattr(self._namespace.world, "entity"):
@@ -32,6 +35,7 @@ class vmf:
         elif hasattr(self._namespace.world, "entities"):
             for entity in self._namespace.world.entities:
                 self.entities[int(entity.id)] = entity
+                
         self.brush_entities = dict()
         # ^ entity.id: {brush.id, brush.id, ...}
         for entity_id, entity in self.entities.items():
@@ -45,6 +49,7 @@ class vmf:
                         brush_id = int(entity.solid.id)
                         self._brushes[brush_id] = entity.solid
                         self.brush_entities[entity_id].add(brush_id)
+                        
         self.import_errors = []
         self.brushes = dict()
         # ^ brush.id: brush

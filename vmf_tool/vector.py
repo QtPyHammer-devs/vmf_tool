@@ -15,7 +15,7 @@ __doc__ = """2D & 3D vector classes"""
 class vec2:
     """2D vector class"""
     __slots__ = ["x", "y"]
-    
+
     def __init__(self, x=0, y=0):
         if hasattr(x, "__iter__"):
             self.x, self.y = x[0], x[1]
@@ -129,7 +129,7 @@ class vec2:
 class vec3:
     """3D vector class"""
     __slots__ = ["x", "y", "z"]
-    
+
     def __init__(self, x=0, y=0, z=0):
         if hasattr(x, "__iter__"):
             self.x, self.y, self.z = x[0], x[1], x[2]
@@ -290,7 +290,7 @@ def sort_clockwise(vec3s, normal):
     for index, point in enumerate(vec3s[1:]):
         (left if score(vec3s[0], point) >= 0 else right).append(index + 1)
 
-    proximity = dict() # number of points between self and start
+    proximity = dict()  # number of points between self and start
     for i, p in enumerate(vec3s[1:]):
         i += 1
         if i in left:

@@ -9,6 +9,7 @@ def triangle_of(string):
     def vector_of(P): return vector.vec3(*map(float, P.split(" ")))
     return tuple(map(vector_of, points))
 
+
 def plane_of(A, B, C):
     """returns the plane (vec3 normal, float distance) the triangle ABC represents"""
     normal = ((A - B) * (C - B)).normalise()
@@ -73,7 +74,7 @@ class displacement:
         self.alphas = []
         # self.triangle_tags = []
         # self.allowed_verts = []
-        floats = lambda s: tuple(map(float, s.split(" ")))
+        def floats(s): return tuple(map(float, s.split(" ")))
         row_count = (2 ** self.power) + 1
         for i in range(row_count):
             row = f"row{i}"
@@ -92,7 +93,7 @@ class displacement:
     def change_power(self, new_power):
         """simplify / subdivide displacement further"""
         raise NotImplementedError()
- 
+
 
 class solid:
     __slots__ = ("colour", "id", "is_displacement", "faces", "face_ids", "source")
@@ -129,12 +130,12 @@ class solid:
                     center + ((local_x + -local_y) * radius),
                     center + ((-local_x + -local_y) * radius)]
             for other_f in self.faces:
-                if other_f.plane == f.plane: # skip yourself
+                if other_f.plane == f.plane:  # skip yourself
                     continue
                 ngon, offcut = clip(ngon, other_f.plane).values()
             self.faces[i].polygon = ngon
             if hasattr(f, "displacement") and len(ngon) != 4:
-                raise RuntimeError("{self.id} {f.id} invalid displacement")   
+                raise RuntimeError("{self.id} {f.id} invalid displacement")  
 
     def __repr__(self):
         return f"<solid id={self.id}, {len(self.faces)} sides>"
