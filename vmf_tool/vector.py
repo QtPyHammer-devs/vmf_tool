@@ -142,7 +142,7 @@ class vec3:
     def __add__(self, other):
         try:
             other = vec3(other)
-        
+        except Exception:
             raise TypeError("unsupported operand type(s) for +: 'vec3' and '{}'".format(other.__class__.__name__))
         return vec3(*map(math.fsum, zip(self, other)))
 
