@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 import re
-from typing import Any, Dict, ItemsView, Iterable, List, Union
+from typing import Any, ItemsView, Iterable, List, Mapping, Union
 
 
 def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespace:
@@ -153,7 +153,7 @@ class Namespace:
     """Maps objects like a dictionary, all keys are strings.
     Values can be accessed as class attributes.
     If a key is not a valid attribute name, if can be used like a dictionary key."""
-    def __init__(self, **presets: Dict[str, Any]):
+    def __init__(self, **presets: Mapping[str, Any]):
         # absorb presets
         for key, value in presets.items():
             if isinstance(value, dict):
