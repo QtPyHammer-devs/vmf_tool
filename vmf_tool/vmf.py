@@ -1,27 +1,38 @@
 import os
 import shutil
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Set
 
-from .parser import Namespace, parse, text_from
-from .brushes import Solid
+from . import brushes
+from . import parser
 
 
 class Vmf:
-    def __init__(self, filename: str) -> Namespace:
+    brush_entities: Dict[int, Set[int]]
+    brushes: Dict[int, brushes.Solid]
+    detail_material: str
+    detail_vbsp: str
+    entitites: Dict[int, parser.Namespace]
+    import_errors: List[str]
+    raw_brushes: Dict[int, parser.Namespace]
+    raw_namespace: parser.Namespace
+    skybox: str
+    filename: str
+
+    def __init__(self, filename: str) -> parser.Namespace:
         # how could a loading bar measure progress?
-        self.filename: str = filename
+        self.filename = filename
         with open(self.filename, "r") as vmf_file:
-            self.raw_namespace: Namespace = parse(vmf_file)
-        # map raw.namespace with parser.scope
+            self.raw_namespace = parser.parse(vmf_file)
+        # map the raw Namespace with parser.scope
         # use Vmf @property to mutate the namespace directly
-        # allowing for a remapped .vmf with edit history
+        # allowing for a remapped .vmf with edit history (CRDT support)
 
         # Worldspawn:
-        self.skybox: str = self.raw_namespace.world.skyname
-        self.detail_material: str = self.raw_namespace.world.detailmaterial
-        self.detail_vbsp: str = self.raw_namespace.world.detailvbsp
+        self.skybox = self.raw_namespace.world.skyname
+        self.detail_material = self.raw_namespace.world.detailmaterial
+        self.detail_vbsp = self.raw_namespace.world.detailvbsp
 
-        self.raw_brushes: Dict[int, Namespace] = dict()
+        self.raw_brushes = dict()
         # ^ {id: brush}
         if hasattr(self.raw_namespace.world, "solid"):
             self.raw_namespace.world.solids = [self.raw_namespace.world.solid]
@@ -29,7 +40,7 @@ class Vmf:
             for brush in self.raw_namespace.world.solids:
                 self.raw_brushes[int(brush.id)] = brush
 
-        self.entities: Dict[int, Namespace] = dict()
+        self.entities = dict()
         # ^ {id: entity}
         if hasattr(self.raw_namespace.world, "entity"):
             entity = self.raw_namespace.world.entity
@@ -38,7 +49,7 @@ class Vmf:
             for entity in self.raw_namespace.world.entities:
                 self.entities[int(entity.id)] = entity
 
-        self.brush_entities: Dict[int, Set[int]] = dict()
+        self.brush_entities = dict()
         # ^ {entity.id: {brush.id, brush.id, ...}}
         for entity_id, entity in self.entities.items():
             if hasattr(entity, "solid"):
@@ -52,12 +63,12 @@ class Vmf:
                         self.raw_brushes[brush_id] = entity.solid
                         self.brush_entities[entity_id].add(brush_id)
 
-        self.import_errors: List[str] = list()
-        self.brushes: Dict[int, Solid] = dict()
+        self.import_errors = list()
+        self.brushes = dict()
         # ^ {brush.id: brush}
         for i, brush_id in enumerate(self.raw_brushes):
             try:
-                brush = Solid(self.raw_brushes[brush_id])
+                brush = brushes.Solid(self.raw_brushes[brush_id])
             except Exception as exc:
                 self.import_errors.append("\n".join(
                     [f"Solid #{i} id: {brush_id} is invalid.",
@@ -69,12 +80,13 @@ class Vmf:
         # user visgroups
         # worldspawn data
 
-    def save_to_file(self, filename: Union[str, None] = None):
+    def save_to_file(self, filename: str = ""):
         # first, ensure all user edits will be represented in the saved file!
-        if filename is None:
+        # -- copying changes made to self.brushes to self.raw_namespace etc.
+        if filename == "":
             filename = self.filename
         if os.path.exists(filename):
-            base_filename, ext = os.path.splitext(filename)
-            shutil.copy(filename, f"{base_filename}.vmx")
+            old_filename, ext = os.path.splitext(filename)
+            shutil.copy(filename, f"{old_filename}.vmx")
         with open(filename, "w") as file:
-            file.write(text_from(self.raw_namespace))
+            file.write(parser.text_from(self.raw_namespace))
