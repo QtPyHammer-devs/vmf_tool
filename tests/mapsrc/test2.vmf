@@ -5637,7 +5637,9 @@ entity
 	connections
 	{
 		"OnCapTeam1" "cp1_model,Skin,1,0,-1"
+        "OnCapTeam1" "tank,Skin,1,0,-1"
 		"OnCapTeam2" "cp1_model,Skin,2,0,-1"
+        "OnCapTeam2" "tank,Skin,3,0,-1"
 	}
 	"origin" "0 -64 -192"
 	editor
