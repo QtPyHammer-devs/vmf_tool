@@ -178,7 +178,7 @@ class Namespace:
     Values can be accessed as class attributes.
     If a key is not a valid attribute name, if can be used like a dictionary key."""
     def __init__(self, **presets: Mapping[str, Any]):
-        # absorb presets
+        # Namespace(key=value, key2=value2)
         for key, value in presets.items():
             if isinstance(value, dict):
                 self[key] = Namespace(value)
@@ -200,14 +200,11 @@ class Namespace:
         return len(self.__dict__.keys())
 
     def __repr__(self) -> str:
-        """based on collections.namedtuple's repr method"""
         attributes: List[str] = list()
         for attribute_name, attr in self.items():
             if not re.match("^[A-Za-z_][A-Za-z_0-9]*$", attribute_name):
-                # invalid attribute names are placed in quotes
-                attribute_name = f'"{attribute_name}"'
-            attribute_string = f"{attribute_name}: {attr.__class__.__name__}"
-            attributes.append(attribute_string)
+                attribute_name = f'"{attribute_name}"'  # invalid attribute names in quotes
+            attributes.append(attribute_name)
         return f"<Namespace({', '.join(attributes)})>"
 
     def items(self) -> ItemsView:

@@ -24,5 +24,5 @@ class TestVmfMethods:
     def test_connections(self):
         # Issue #13: Unwanted removal of duplicate keys on connections
         test2_vmf = vmf_tool.Vmf("tests/mapsrc/test2.vmf")
-        assert len(test2_vmf.entities[162]) == 4
-        # if 2, duplicates were deleted
+        assert len(test2_vmf.entities["cp1"].connections) == 4
+        # len() has unexpected behaviour with Namespaces

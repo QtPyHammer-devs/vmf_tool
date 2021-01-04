@@ -62,7 +62,7 @@ class Vmf:
             del self._vmf.entity
         self.entities = {int(e.id): e for e in getattr(self._vmf, "entities", list())}
         # ^ {entity.id: entity}
-        self.entities.update({e.targetname for e in self.entities if hasattr(e, "targetname")})
+        self.entities.update({e.targetname: e for e in self.entities.values() if hasattr(e, "targetname")})
         # ^ {entity.targetname: entity}
         # NOTE: entities can share targetnames, only the last entity with this name will return this way
 
