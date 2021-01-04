@@ -74,27 +74,35 @@ def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespac
     return namespace
 
 
-def text_from(_dict: Union[dict, Namespace], tab_depth: int = 0) -> str:
+def text_from(namespace: Union[dict, Namespace], depth: int = 0) -> str:
     """Namespace / dictionary --> text resembling a .vmf"""
     out = list()
-    tabs = "\t" * tab_depth
-    for key, value in _dict.items():
+    indent = "\t" * depth
+    for key, value in namespace.items():
         if key == "_line":
-            continue
+            continue  # ignore line numbers
+        # BRANCH A: Key-Value Pair
         elif isinstance(value, str):  # key-value pair
-            out.append(f"""{tabs}"{key}" "{value}"\n""")
-            continue
-        elif isinstance(value, (dict, Namespace)):  # another nest
-            value = (value,)
-        elif isinstance(value, (list, tuple)):  # collection of plurals
+            # ^ this isn't a great way of checking for key-value pairs
+            # ideally values can be any type (even iterables; vec3, dispinfo rows etc.)
+            # and repr would provide a valid (recognised by stock hammer) string value
+            out.append(f"""{indent}"{key}" "{value}"\n""")
+            continue  # skip recursive step
+        # BRANCH B-1: Namespace / "Plural" of Namespaces
+        elif isinstance(value, (dict, Namespace)):  # singular
+            # key is singular form, no change needed
+            value = (value,)  # run for loop once; lazy code recycling
+        elif isinstance(value, (list, tuple)):  # plural
             key = singularise(key)
+            # value is an iterable, feed it to the for loop
         else:
             raise RuntimeError(f"Found a non-string: {value}")
-        for item in value:  # go a layer deeper
-            out.append(f"""{tabs}{key}\n{tabs}""" + "{\n")
-            out.append(text_from(item, tab_depth + 1))
-    if tab_depth > 0:  # close the plural index / namespace
-        out.append("\t" * (tab_depth - 1) + "}\n")
+        for item in value:  # BRANCH B-2: Recurse
+            out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+            out.append(text_from(item, depth + 1))
+            # close bracket here?
+    if depth > 0:  # close BRANCH B-2 for parent
+        out.append("\t" * (depth - 1) + "}\n")
     return "".join(out)
 
 
