@@ -7,6 +7,7 @@ from . import parser
 
 
 class Vmf:
+    _vmf: parser.Namespace
     brush_entities: Dict[int, Set[int]]
     brushes: Dict[int, brushes.Solid]
     detail_material: str
@@ -15,11 +16,9 @@ class Vmf:
     filename: str
     import_errors: List[str]
     raw_brushes: Dict[int, parser.Namespace]
-    raw_namespace: parser.Namespace
     skybox: str
 
     def __init__(self, filename: str):
-        # how could a loading bar measure progress?
         self.filename = filename
         if os.path.exists(self.filename):
             self.load()
@@ -28,8 +27,9 @@ class Vmf:
             # a real new file, not loading a template
 
     def load(self):
+        # how could a loading bar measure progress?
         with open(self.filename, "r") as vmf_file:
-            self.raw_namespace = parser.parse(vmf_file)
+            self._vmf = parser.parse(vmf_file)
         # map the raw Namespace with parser.scope
         # use Vmf @property to mutate the namespace directly
         # allowing for a remapped .vmf with edit history (CRDT support)
@@ -43,28 +43,27 @@ class Vmf:
         # worldspawn data
 
         # Worldspawn:
-        self.skybox = self.raw_namespace.world.skyname
-        self.detail_material = self.raw_namespace.world.detailmaterial
-        self.detail_vbsp = self.raw_namespace.world.detailvbsp
+        self.skybox = self._vmf.world.skyname
+        self.detail_material = self._vmf.world.detailmaterial
+        self.detail_vbsp = self._vmf.world.detailvbsp
 
     def load_world_brushes(self):
         """move world solids from namespace to self"""
-        _vmf = self.raw_namespace
-        if hasattr(_vmf.world, "solid"):
-            _vmf.world.solids = [_vmf.world.solid]
-            del _vmf.world.solid
-        self.raw_brushes = {int(b.id): b for b in getattr(_vmf.world, "solids", list())}
+        if hasattr(self._vmf.world, "solid"):
+            self._vmf.world.solids = [self._vmf.world.solid]
+            del self._vmf.world.solid
+        self.raw_brushes = {int(b.id): b for b in getattr(self._vmf.world, "solids", list())}
         # ^ {id: brush}
 
     def load_entities(self):
         """move entities to self & collect solids from brush based entities"""
-        _vmf = self.raw_namespace
-        if hasattr(_vmf.world, "entity"):
-            _vmf.world.entities = [_vmf.world.entity]
-            del _vmf.world.entity
-        self.entities = {int(e.id): e for e in getattr(_vmf.world, "entities", list())}
-        # ^ {id: entity}
+        if hasattr(self._vmf, "entity"):
+            self._vmf.entities = [self._vmf.entity]
+            del self._vmf.entity
+        self.entities = {int(e.id): e for e in getattr(self._vmf, "entities", list())}
+        # ^ {entity.id: entity}
         self.entities.update({e.targetname for e in self.entities if hasattr(e, "targetname")})
+        # ^ {entity.targetname: entity}
         # NOTE: entities can share targetnames, only the last entity with this name will return this way
 
         self.brush_entities = dict()
@@ -95,12 +94,12 @@ class Vmf:
 
     def save_to_file(self, filename: str = ""):
         # first, ensure all user edits will be represented in the saved file!
-        # -- copying changes made to self.brushes to self.raw_namespace etc.
-        # TODO: update self.raw_namespace with changes
+        # -- copying changes made to self.brushes to self._vmf etc.
+        # TODO: update self._vmf with changes
         if filename == "":
             filename = self.filename
         if os.path.exists(filename):
             old_filename, ext = os.path.splitext(filename)
             shutil.copy(filename, f"{old_filename}.vmx")
         with open(filename, "w") as file:
-            file.write(parser.text_from(self.raw_namespace))
+            file.write(parser.text_from(self._vmf))
