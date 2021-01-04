@@ -60,7 +60,7 @@ class Face:
 
 
 class Displacement:
-    def __init__(self, namespace):
+    def __init__(self, namespace):  # refactor into a load method
         self.power = int(namespace.power)
         self.start = tuple(map(float, re.findall(r"(?<=[\[\ ]).+?(?=[\ \]])", namespace.startposition)))
         # self.flags = int(namespace.flags)
@@ -96,17 +96,15 @@ class Displacement:
 
 
 class Solid:
-    __slots__ = ("colour", "id", "is_displacement", "faces", "face_ids", "source")
+    __slots__ = ("colour", "id", "is_displacement", "faces", "source")
 
-    def __init__(self, namespace):
+    def __init__(self, namespace):  # refactor into a load method
         """Initialise from namespace (vmf import)"""
-        self.source = namespace  # preserved for debugging
+        self.source = namespace  # preserved for debugging & saving
         self.id = int(self.source.id)
         self.colour = tuple(int(x) / 255 for x in namespace.editor.color.split())
 
         self.faces = list(map(Face, self.source.sides))
-        self.face_ids = [f.id for f in self.faces]
-        # ^ for lookup by id
         if any([hasattr(f, "displacement") for f in self.faces]):
             self.is_displacement = True
         else:
@@ -136,11 +134,13 @@ class Solid:
             if hasattr(f, "displacement") and len(ngon) != 4:
                 raise RuntimeError("{self.id} {f.id} invalid displacement")
 
+    def __iter__(self):
+        return iter(self.faces)
+
     def __repr__(self):
         return f"<Solid id={self.id}, {len(self.faces)} sides>"
 
-    def translate(self, offset):
-        """offset is a vector"""
+    def translate(self, offset: vector.vec3):
         raise NotImplementedError()
 
 

@@ -7,7 +7,7 @@ with open("README.md", "r") as readme:
 setuptools.setup(
     name="vmf_tool",
     packages=["vmf_tool"],
-    version="0.1.0",
+    version="0.2.0",
     license="gpl-3.0",
     description="A library for interpreting & editing .vmf files",
     author="Jared Ketterer",

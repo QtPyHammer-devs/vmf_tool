@@ -1,8 +1,24 @@
 from __future__ import annotations
 
+import collections
 import io
 import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
+
+
+class SkeletonKeyDict(collections.defaultdict):
+    """A dictionary where one key can reference multiple objects"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(set, *args, **kwargs)
+
+    def __setitem__(self, key, value):
+        super(collections.defaultdict, self).__getitem__(key).add(value)
+
+    def __getitem__(self, key):
+        ...
+
+    def override(self, key, value):
+        super().__setitem__(key, value)
 
 
 def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespace:
