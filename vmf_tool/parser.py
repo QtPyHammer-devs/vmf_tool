@@ -6,19 +6,27 @@ import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
 
 
-class SkeletonKeyDict(collections.defaultdict):
+class SkeletonKeyDict():
     """A dictionary where one key can reference multiple objects"""
     def __init__(self, *args, **kwargs):
-        super().__init__(set, *args, **kwargs)
-
-    def __setitem__(self, key, value):
-        super(collections.defaultdict, self).__getitem__(key).add(value)
+        self._dict = collections.defaultdict(list)
+        for key, value in kwargs.items():
+            if isinstance(value, list):  # assume plural
+                self[key] = value
+            else:  # assume singular
+                self[key] = [value]
 
     def __getitem__(self, key):
-        ...
+        values = super(SkeletonKeyDict, self).__getitem__(key)
+        if len(values) == 1:  # singular
+            return values[0]
+        else:  # plural
+            return values
 
-    def override(self, key, value):
-        super().__setitem__(key, value)
+    def __setitem__(self, key, value):
+        values = super().__getitem__(key)  # recursion hell
+        values.append(value)
+        super(SkeletonKeyDict, self).__setitem__(key, values)
 
 
 def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespace:
