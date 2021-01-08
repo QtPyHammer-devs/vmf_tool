@@ -1,32 +1,44 @@
 from __future__ import annotations
 
-import collections
 import io
 import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
 
 
-class SkeletonKeyDict():
+class SkeletonKeyDict:
     """A dictionary where one key can reference multiple objects"""
     def __init__(self, *args, **kwargs):
-        self._dict = collections.defaultdict(list)
-        for key, value in kwargs.items():
-            if isinstance(value, list):  # assume plural
-                self[key] = value
-            else:  # assume singular
-                self[key] = [value]
+        self.dict = dict(*args, **kwargs)
+        self.plurals = set()  # remember! some plurals are spelt the same as their singular forms!
 
     def __getitem__(self, key):
-        values = super(SkeletonKeyDict, self).__getitem__(key)
-        if len(values) == 1:  # singular
-            return values[0]
-        else:  # plural
-            return values
+        if key not in self.dict:
+            if pluralise(key) in self.plurals:  # "key" is singular of a stored plural
+                # entities store structs last
+                # so for an entity with a "solid" key-value & at least one brush:
+                # - ent["solids"][0] will be the key-value
+                # this is why ent["solid"] returns ent["solids"][0] if plural
+                return self.dict[singularise(key)][0]
+            else:  # "key" is plural of a stored singular
+                singular = self.dict[singularise(key)]
+                return [singular]  # return the singular as if it is a plura
+        return self.dict[key]
 
     def __setitem__(self, key, value):
-        values = super().__getitem__(key)  # recursion hell
-        values.append(value)
-        super(SkeletonKeyDict, self).__setitem__(key, values)
+        """only adds to self.dict, will not override"""
+        plural_key = pluralise(key)
+        if key in self.dict.keys():
+            self.plurals.add(plural_key)
+            self.dict[plural_key] = [self.dict[key], value]
+            del self.dict[key]
+        elif plural_key in self.dict.keys():
+            self.dict[plural_key].append(value)
+        else:
+            self.dict[key] = value
+
+    def overwrite(self, key, value):
+        self.dict[key] = value
+        # "self.dict[key][index] = value" doesn't need a method
 
 
 def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespace:
