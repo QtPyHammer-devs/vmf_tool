@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Dict, List, Set
+from typing import Dict, List
 
 from . import brushes
 from . import parser
@@ -8,23 +8,25 @@ from . import parser
 
 class Vmf:
     _vmf: parser.Namespace
-    brush_entities: Dict[int, Set[int]]
+    filename: str
+    raw_brushes: Dict[int, parser.Namespace]
     brushes: Dict[int, brushes.Solid]
+    brush_entities: Dict[int, List[int]]
+    entities: Dict[int, parser.Namespace]
+    skybox: str
     detail_material: str
     detail_vbsp: str
-    entitites: Dict[int, parser.Namespace]
-    filename: str
     import_errors: List[str]
-    raw_brushes: Dict[int, parser.Namespace]
-    skybox: str
 
     def __init__(self, filename: str):
         self.filename = filename
         if os.path.exists(self.filename):
             self.load()
         else:
-            ...  # generate basic .vmf namespace
-            # a real new file, not loading a template
+            # create a blank .vmf namespace & connections
+            self.brushes = dict()
+            self.brush_entities = dict()
+            self.entities = []
 
     def load(self):
         # how could a loading bar measure progress?
@@ -35,12 +37,12 @@ class Vmf:
         # allowing for a remapped .vmf with edit history (CRDT support)
 
         self.load_world_brushes()
-        self.load_entities()
-        self.convert_solids()
+        self.load_entities()  # & brushes tied to entities
+        self.convert_solids()  # self.raw_brushes: parser.Namespace -> self.brushes: brushes.Solid
 
         # groups
         # user visgroups
-        # worldspawn data
+        # hidden state
 
         # Worldspawn:
         self.skybox = self._vmf.world.skyname
@@ -67,15 +69,15 @@ class Vmf:
         # NOTE: entities can share targetnames, only the last entity with this name will return this way
 
         self.brush_entities = dict()
-        # ^ {entity.id: {brush.id, brush.id, ...}}
+        # ^ {entity.id: [brush.id, brush.id, ...]}
         for entity_id, entity in self.entities.items():
             if isinstance(getattr(entity, "solid", None), parser.Namespace):
                 entity.solids = [entity.solid]
                 del entity.solid
-            if hasattr(entity, "solids"):  # assuming at least one is a brush, & not a flag
+            elif hasattr(entity, "solids"):  # assuming at least one is a brush
                 entity_brushes = {b.id: b for b in entity.solids if isinstance(b, parser.Namespace)}
                 self.raw_brushes.update(entity_brushes)
-                self.brush_entities[entity_id] = set(entity_brushes.keys())
+                self.brush_entities[entity_id] = list(entity_brushes.keys())
 
     def convert_solids(self):
         """self.raw_brushes: parser.Namespace -> self.brushes: brushes.Solid"""
@@ -93,10 +95,22 @@ class Vmf:
                 self.brushes[brush_id] = brush
 
     def save_to_file(self, filename: str = ""):
-        # first, ensure all user edits will be represented in the saved file!
-        # -- copying changes made to self.brushes to self._vmf etc.
         # TODO: update self._vmf with changes
-        if filename == "":
+
+        def is_world_brush(brush):
+            return any([brush.id in b_ids for b_ids in self.brush_entities.values()])
+
+        self._vmf.world.brushes = []
+        for brush in self.brushes:
+            if is_world_brush(brush):
+                self._vmf.world.brushes.append(brush.as_namespace())
+
+        for entity in self.entities:
+            if entity in self.brush_entities:
+                entity.brushes = [self.brushes[b.id] for b in self.brush_entities[entity.id]]
+            self._vmf.entities.append(self.entity.as_namespace())
+
+        if filename == "":  # default
             filename = self.filename
         if os.path.exists(filename):
             old_filename, ext = os.path.splitext(filename)

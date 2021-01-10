@@ -5,36 +5,38 @@ import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
 
 
-class SkeletonKeyDict:
+class SkeletonKeyDict(dict):
     """A dictionary where one key can reference multiple objects"""
     def __init__(self, *args, **kwargs):
-        self.dict = dict(*args, **kwargs)
-        self.plurals = set()  # remember! some plurals are spelt the same as their singular forms!
+        super.__init__(*args, **kwargs)
 
     def __getitem__(self, key):
-        if key not in self.dict:
-            if pluralise(key) in self.plurals:  # "key" is singular of a stored plural
+        if key not in self:
+            if pluralise(key) in self:  # "key" is singular of a stored plural
                 # entities store structs last
                 # so for an entity with a "solid" key-value & at least one brush:
                 # - ent["solids"][0] will be the key-value
                 # this is why ent["solid"] returns ent["solids"][0] if plural
-                return self.dict[singularise(key)][0]
-            else:  # "key" is plural of a stored singular
-                singular = self.dict[singularise(key)]
-                return [singular]  # return the singular as if it is a plura
-        return self.dict[key]
+                return self.get(pluralise(key))[0]
+            elif singularise(key) in self:  # "key" is plural of a stored singular
+                # allow "for entity in entities" when only 1 exists
+                singular = self.get(singularise(key))
+                return [singular]
+            else:
+                return []  # allow iteration of an absent key
+        return self.get(key)
 
     def __setitem__(self, key, value):
         """only adds to self.dict, will not override"""
         plural_key = pluralise(key)
-        if key in self.dict.keys():
-            self.plurals.add(plural_key)
-            self.dict[plural_key] = [self.dict[key], value]
-            del self.dict[key]
-        elif plural_key in self.dict.keys():
-            self.dict[plural_key].append(value)
-        else:
-            self.dict[key] = value
+        if key in self:  # extend singular to plural
+            super().__setitem__(plural_key, [self.dict[key], value])
+            del self[key]
+        elif plural_key in self:  # add to plural
+            # list form plurals will be skipped
+            self.get(plural_key).append(value)
+        else:  # new singular
+            super().__setitem__(key, value)
 
     def overwrite(self, key, value):
         self.dict[key] = value
