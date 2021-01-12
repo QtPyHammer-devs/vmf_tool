@@ -5,44 +5,6 @@ import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
 
 
-class SkeletonKeyDict(dict):
-    """A dictionary where one key can reference multiple objects"""
-    def __init__(self, *args, **kwargs):
-        super.__init__(*args, **kwargs)
-
-    def __getitem__(self, key):
-        if key not in self:
-            if pluralise(key) in self:  # "key" is singular of a stored plural
-                # entities store structs last
-                # so for an entity with a "solid" key-value & at least one brush:
-                # - ent["solids"][0] will be the key-value
-                # this is why ent["solid"] returns ent["solids"][0] if plural
-                return self.get(pluralise(key))[0]
-            elif singularise(key) in self:  # "key" is plural of a stored singular
-                # allow "for entity in entities" when only 1 exists
-                singular = self.get(singularise(key))
-                return [singular]
-            else:
-                return []  # allow iteration of an absent key
-        return self.get(key)
-
-    def __setitem__(self, key, value):
-        """only adds to self.dict, will not override"""
-        plural_key = pluralise(key)
-        if key in self:  # extend singular to plural
-            super().__setitem__(plural_key, [self.dict[key], value])
-            del self[key]
-        elif plural_key in self:  # add to plural
-            # list form plurals will be skipped
-            self.get(plural_key).append(value)
-        else:  # new singular
-            super().__setitem__(key, value)
-
-    def overwrite(self, key, value):
-        self.dict[key] = value
-        # "self.dict[key][index] = value" doesn't need a method
-
-
 def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespace:
     """.vmf text -> Namespace"""
     if not isinstance(string_or_file, (str, io.TextIOWrapper, io.StringIO)):
@@ -64,8 +26,9 @@ def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespac
                 continue
             elif line == "{":  # START declaration
                 current_keys = current_target.__dict__.keys()
-                plural = pluralise(previous_line)
                 previous_line = previous_line.strip('"')
+                plural = pluralise(previous_line)
+                # PLURAL CHECKS
                 if previous_line in current_keys:  # NEW plural
                     current_target[plural] = [current_target[previous_line]]  # create plural from old singular
                     current_target.__dict__.pop(previous_line)  # delete singular
@@ -79,16 +42,17 @@ def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespac
                 else:  # NEW singular
                     current_scope.add(previous_line)
                     current_scope.set_in(namespace, new_namespace)
+                # PLURAL CHECKS
             elif line == "}":  # END declaration
                 current_scope.retreat()
             elif '" "' in line:  # "KEY" "VALUE"
                 key, value = line.split('" "')
                 key = key.lstrip('"')
                 value = value.rstrip('"')
-                current_target[key] = value
+                current_target.addattr(key, value)
             elif line.count(" ") == 1:  # KEY VALUE
                 key, value = line.split()
-                current_target[key] = value
+                current_target.addattr(key, value)
             previous_line = line
         except Exception as exc:
             print("error on line {0:04d}:\n{1}\n{2}".format(line_number, previous_line, line))
@@ -228,6 +192,16 @@ class Namespace:
                 attribute_name = f'"{attribute_name}"'  # invalid attribute names in quotes
             attributes.append(attribute_name)
         return f"<Namespace({', '.join(attributes)})>"
+
+    def addattr(self, attr, value):
+        if hasattr(self, attr):
+            if isinstance(self[attr], list):  # ADD to plural
+                self[attr].append(value)
+            else:  # NEW plural
+                self[pluralise(attr)] = [self[attr], value]
+                del self[attr]
+        else:  # NEW singular
+            self[attr] = value
 
     def items(self) -> ItemsView:
         """exposes self.__dict__"""
