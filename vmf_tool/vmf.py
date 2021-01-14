@@ -51,33 +51,22 @@ class Vmf:
 
     def load_world_brushes(self):
         """move world solids from namespace to self"""
-        if hasattr(self._vmf.world, "solid"):
-            self._vmf.world.solids = [self._vmf.world.solid]
-            del self._vmf.world.solid
-        self.raw_brushes = {int(b.id): b for b in getattr(self._vmf.world, "solids", list())}
+        self.raw_brushes = {int(b.id): b for b in getattr(self._vmf.world, "solid", list())}
         # ^ {id: brush}
 
     def load_entities(self):
         """move entities to self & collect solids from brush based entities"""
-        if hasattr(self._vmf, "entity"):
-            self._vmf.entities = [self._vmf.entity]
-            del self._vmf.entity
-        self.entities = {int(e.id): e for e in getattr(self._vmf, "entities", list())}
+        self.entities = {int(e.id): e for e in getattr(self._vmf, "entity", list())}
         # ^ {entity.id: entity}
-        self.entities.update({e.targetname: e for e in self.entities.values() if hasattr(e, "targetname")})
-        # ^ {entity.targetname: entity}
-        # NOTE: entities can share targetnames, only the last entity with this name will return this way
-
+        # TODO: convenience method / property for modifying entities by name
         self.brush_entities = dict()
         # ^ {entity.id: [brush.id, brush.id, ...]}
         for entity_id, entity in self.entities.items():
-            if isinstance(getattr(entity, "solid", None), parser.Namespace):
-                entity.solids = [entity.solid]
-                del entity.solid
-            elif hasattr(entity, "solids"):  # assuming at least one is a brush
-                entity_brushes = {b.id: b for b in entity.solids if isinstance(b, parser.Namespace)}
-                self.raw_brushes.update(entity_brushes)
-                self.brush_entities[entity_id] = list(entity_brushes.keys())
+            if hasattr(entity, "solid"):
+                if any([isinstance(b, parser.Namespace) for b in entity.solid]):
+                    entity_brushes = {b.id: b for b in entity.solid if isinstance(b, parser.Namespace)}
+                    self.raw_brushes.update(entity_brushes)
+                    self.brush_entities[entity_id] = list(entity_brushes.keys())
 
     def convert_solids(self):
         """self.raw_brushes: parser.Namespace -> self.brushes: brushes.Solid"""
@@ -96,19 +85,20 @@ class Vmf:
 
     def save_to_file(self, filename: str = ""):
         # TODO: update self._vmf with changes
+        # TODO: store hidden state of solids & entities
 
         def is_world_brush(brush):
-            return any([brush.id in b_ids for b_ids in self.brush_entities.values()])
+            return not any([brush.id in b_ids for b_ids in self.brush_entities.values()])
 
-        self._vmf.world.brushes = []
-        for brush in self.brushes:
+        self._vmf.world.brush = []
+        for brush in self.brushes.values():
             if is_world_brush(brush):
-                self._vmf.world.brushes.append(brush.as_namespace())
+                self._vmf.world.brush.append(brush.as_namespace())
 
-        for entity in self.entities:
-            if entity in self.brush_entities:
-                entity.brushes = [self.brushes[b.id] for b in self.brush_entities[entity.id]]
-            self._vmf.entities.append(self.entity.as_namespace())
+        # for entity in self.entities.values():
+        #    if entity.id in self.brush_entities:
+        #        entity.brushes = [self.brushes[b.id] for b in self.brush_entities[entity.id]]
+        #    self._vmf.entity.append(entity.as_namespace())
 
         if filename == "":  # default
             filename = self.filename

@@ -14,50 +14,40 @@ def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespac
     else:  # it's a file
         file = string_or_file
 
-    namespace = Namespace()
+    out_namespace = Namespace()
+    # out_namespace = Namespace(world=Namespace(solid=[]), entity=[])
     current_scope = Scope()
     previous_line = str()
     for line_number, line in enumerate(file.readlines()):
         try:
             new_namespace = Namespace(_line=line_number)
-            current_target = current_scope.get_from(namespace)
+            current_target = current_scope.get_from(out_namespace)
             line = line.strip()  # cleanup spacing
             if line == "" or line.startswith("//"):  # ignore blank / comments
                 continue
             elif line == "{":  # START declaration
-                current_keys = current_target.__dict__.keys()
                 previous_line = previous_line.strip('"')
-                plural = pluralise(previous_line)
-                # PLURAL CHECKS
-                if previous_line in current_keys:  # NEW plural
-                    current_target[plural] = [current_target[previous_line]]  # create plural from old singular
-                    current_target.__dict__.pop(previous_line)  # delete singular
-                    current_target[plural].append(new_namespace)  # second entry
-                    current_scope.add(plural)
-                    current_scope.add(1)  # point at new_namespace
-                elif plural in current_keys:  # APPEND plural
-                    current_scope.add(plural)  # point at plural
-                    current_scope.get_from(namespace).append(new_namespace)
-                    current_scope.add(len(current_scope.get_from(namespace)) - 1)  # current index in plural
-                else:  # NEW singular
-                    current_scope.add(previous_line)
-                    current_scope.set_in(namespace, new_namespace)
-                # PLURAL CHECKS
+                current_target.add_attr(previous_line, new_namespace)
+                # TODO: aim scope at newly created location
+                current_scope.add(previous_line)
+                current_target = current_scope.get_from(out_namespace)
+                if isinstance(current_target, list):
+                    current_scope.add(len(current_target) - 1)
             elif line == "}":  # END declaration
                 current_scope.retreat()
             elif '" "' in line:  # "KEY" "VALUE"
                 key, value = line.split('" "')
                 key = key.lstrip('"')
                 value = value.rstrip('"')
-                current_target.addattr(key, value)
+                current_target.add_attr(key, value)
             elif line.count(" ") == 1:  # KEY VALUE
                 key, value = line.split()
-                current_target.addattr(key, value)
+                current_target.add_attr(key, value)
             previous_line = line
         except Exception as exc:
             print("error on line {0:04d}:\n{1}\n{2}".format(line_number, previous_line, line))
             raise exc
-    return namespace
+    return out_namespace
 
 
 def text_from(namespace: Union[dict, Namespace], depth: int = 0) -> str:
@@ -73,20 +63,22 @@ def text_from(namespace: Union[dict, Namespace], depth: int = 0) -> str:
             # ideally values can be any type (even iterables; vec3, dispinfo rows etc.)
             # and repr would provide a valid (recognised by stock hammer) string value
             out.append(f"""{indent}"{key}" "{value}"\n""")
-            continue  # skip recursive step
         # BRANCH B-1: Namespace / "Plural" of Namespaces
         elif isinstance(value, (dict, Namespace)):  # singular
-            # key is singular form, no change needed
-            value = (value,)  # run for loop once; lazy code recycling
-        elif isinstance(value, (list, tuple)):  # plural
-            key = singularise(key)
-            # value is an iterable, feed it to the for loop
+            out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+            out.append(text_from(value, depth + 1))
+        elif isinstance(value, list):
+            if len(value) == 0:
+                continue  # skip empty lists
+            elif isinstance(value[0], str):  # key occured more that once (entity connections etc.)
+                for duplicate_keyvalue in value:
+                    out.append(f"""{indent}"{key}" "{duplicate_keyvalue}"\n""")
+            elif isinstance(value[0], (dict, Namespace)):
+                for child_namespace in value:  # BRANCH B-2: Recurse
+                    out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+                    out.append(text_from(child_namespace, depth + 1))
         else:
             raise RuntimeError(f"Found a non-string: {value}")
-        for item in value:  # BRANCH B-2: Recurse
-            out.append(f"""{indent}{key}\n{indent}""" + "{\n")
-            out.append(text_from(item, depth + 1))
-            # close bracket here?
     if depth > 0:  # close BRANCH B-2 for parent
         out.append("\t" * (depth - 1) + "}\n")
     return "".join(out)
@@ -163,7 +155,7 @@ class Namespace:
     """Maps objects like a dictionary, all keys are strings.
     Values can be accessed as class attributes.
     If a key is not a valid attribute name, if can be used like a dictionary key."""
-    def __init__(self, **presets: Mapping[str, Any]):
+    def __init__(self, **presets: Mapping[str, Union[Namespace, List, str]]):
         # Namespace(key=value, key2=value2)
         for key, value in presets.items():
             if isinstance(value, dict):
@@ -193,41 +185,15 @@ class Namespace:
             attributes.append(attribute_name)
         return f"<Namespace({', '.join(attributes)})>"
 
-    def addattr(self, attr, value):
+    def add_attr(self, attr, value):
         if hasattr(self, attr):
-            if isinstance(self[attr], list):  # ADD to plural
+            if isinstance(self[attr], list):
                 self[attr].append(value)
-            else:  # NEW plural
-                self[pluralise(attr)] = [self[attr], value]
-                del self[attr]
-        else:  # NEW singular
+            else:
+                self[attr] = [self[attr], value]
+        else:
             self[attr] = value
 
     def items(self) -> ItemsView:
         """exposes self.__dict__"""
         return self.__dict__.items()
-
-
-def pluralise(word: str) -> str:
-    if word.endswith("f"):  # self -> selves
-        return word[:-1] + "ves"
-    elif word.endswith("y"):  # body -> bodies
-        return word[:-1] + "ies"
-    elif word.endswith("ex"):  # vertex -> vertices
-        return word[:-2] + "ices"
-    else:  # side -> sides
-        return word + "s"
-
-
-def singularise(word: str) -> str:
-    if word.endswith("ves"):  # self <- selves
-        return word[:-3] + "f"
-    elif word.endswith("ies"):  # body <- bodies
-        return word[:-3] + "y"
-    elif word.endswith("ices"):  # vertex <- vertices
-        return word[:-4] + "ex"
-    elif word.endswith("s"):  # side <- sides
-        return word[:-1]
-    else:
-        return word  # assume word is already singular
-        # "in the face of ambiguity, refuse the temptation to guess" - PEP 20
