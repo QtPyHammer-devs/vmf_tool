@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import traceback
 from typing import Dict, List
 
 from . import brushes
@@ -17,7 +18,7 @@ class Vmf:
     entities: Dict[int, parser.Namespace]
     filename: str
     hidden: Dict[str, List[int]]
-    import_errors: List[str] = []
+    import_errors: Dict[str, str]
     raw_brushes: Dict[int, parser.Namespace]
     skybox: str = "sky_tf2_04"
     # TODO: setters to update self._vmf properties
@@ -26,7 +27,7 @@ class Vmf:
         self.filename = filename
         # create base .vmf
         worldspawn = parser.Namespace(id="1", mapversion="0", classname="worldspawn", solid=[],
-                                      detailmaterial=self.detail_material, detailvbsp="detailvbsp",
+                                      detailmaterial=self.detail_material, detailvbsp=self.detail_vbsp,
                                       maxpropscreenwidth="-1", skyname=self.skybox)
         self._vmf = parser.Namespace(world=worldspawn, entity=[])
         # clear all dicts
@@ -34,6 +35,7 @@ class Vmf:
         self.brushes = dict()
         self.entities = dict()
         self.hidden = {"brushes": [], "entities": []}
+        self.import_errors = dict()
         self.raw_brushes = dict()
 
     @staticmethod
@@ -78,16 +80,16 @@ class Vmf:
 
     def convert_solids(self):
         """self.raw_brushes: parser.Namespace -> self.brushes: brushes.Brush"""
-        self.import_errors = list()
+        self.import_errors = dict()
+        # ^ {"Error text": traceback}
         self.brushes = dict()
         # ^ {brush.id: brush}
         for i, brush_id in enumerate(self.raw_brushes):
             try:
                 brush = brushes.Brush.from_namespace(self.raw_brushes[brush_id])
             except Exception as exc:
-                self.import_errors.append("\n".join(
-                    [f"Solid #{i} id: {brush_id} is invalid.",
-                     f"{exc.__class__.__name__}: {exc}"]))
+                error_text = f"Solid #{i} id: {brush_id} is invalid.\n{exc.__class__.__name__}: {exc}"
+                self.import_errors[error_text] = traceback.format_exc()
             else:
                 self.brushes[brush_id] = brush
 
