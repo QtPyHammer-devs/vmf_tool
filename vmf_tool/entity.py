@@ -3,4 +3,4 @@ class Entity:
         pass
 
     def load(self, namespace):
-        pass
+        raise NotImplementedError()

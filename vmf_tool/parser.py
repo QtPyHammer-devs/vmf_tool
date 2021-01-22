@@ -50,40 +50,6 @@ def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespac
     return out_namespace
 
 
-def text_from(namespace: Union[dict, Namespace], depth: int = 0) -> str:
-    """Namespace / dictionary --> text resembling a .vmf"""
-    out = list()
-    indent = "\t" * depth
-    for key, value in namespace.items():
-        if key == "_line":
-            continue  # ignore line numbers
-        # BRANCH A: Key-Value Pair
-        elif isinstance(value, str):  # key-value pair
-            # ^ this isn't a great way of checking for key-value pairs
-            # ideally values can be any type (even iterables; vec3, dispinfo rows etc.)
-            # and repr would provide a valid (recognised by stock hammer) string value
-            out.append(f"""{indent}"{key}" "{value}"\n""")
-        # BRANCH B-1: Namespace / "Plural" of Namespaces
-        elif isinstance(value, (dict, Namespace)):  # singular
-            out.append(f"""{indent}{key}\n{indent}""" + "{\n")
-            out.append(text_from(value, depth + 1))
-        elif isinstance(value, list):
-            if len(value) == 0:
-                continue  # skip empty lists
-            elif isinstance(value[0], str):  # key occured more that once (entity connections etc.)
-                for duplicate_keyvalue in value:
-                    out.append(f"""{indent}"{key}" "{duplicate_keyvalue}"\n""")
-            elif isinstance(value[0], (dict, Namespace)):
-                for child_namespace in value:  # BRANCH B-2: Recurse
-                    out.append(f"""{indent}{key}\n{indent}""" + "{\n")
-                    out.append(text_from(child_namespace, depth + 1))
-        else:
-            raise RuntimeError(f"Found a non-string: {value}")
-    if depth > 0:  # close BRANCH B-2 for parent
-        out.append("\t" * (depth - 1) + "}\n")
-    return "".join(out)
-
-
 class Scope:
     """Array of indices into a nested array"""
     def __init__(self, tiers: list = []):
@@ -193,6 +159,36 @@ class Namespace:
                 self[attr] = [self[attr], value]
         else:
             self[attr] = value
+
+    def as_string(self, depth: int = 0) -> str:
+        """Namespace / dictionary --> text resembling a .vmf"""
+        out = list()
+        indent = "\t" * depth
+        for key, value in self.items():
+            if key == "_line":
+                continue  # ignore line numbers
+            # BRANCH A: Key-Value Pair
+            elif isinstance(value, str):  # key-value pair
+                out.append(f"""{indent}"{key}" "{value}"\n""")
+            # BRANCH B-1: Namespace / "Plural" of Namespaces
+            elif isinstance(value, (dict, Namespace)):  # singular
+                out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+                out.append(value.as_string(depth + 1))
+            elif isinstance(value, list):
+                if len(value) == 0:
+                    continue  # skip empty lists
+                elif isinstance(value[0], str):  # key occured more that once (entity connections etc.)
+                    for duplicate_keyvalue in value:
+                        out.append(f"""{indent}"{key}" "{duplicate_keyvalue}"\n""")
+                elif isinstance(value[0], (dict, Namespace)):
+                    for child_namespace in value:  # BRANCH B-2: Recurse
+                        out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+                        out.append(child_namespace.as_string(depth + 1))
+            else:
+                raise RuntimeError(f"Found a non-string: {value}")
+        if depth > 0:  # close BRANCH B-2 for parent
+            out.append("\t" * (depth - 1) + "}\n")
+        return "".join(out)
 
     def items(self) -> ItemsView:
         """exposes self.__dict__"""

@@ -105,12 +105,12 @@ class vec2:
 class vec3:
     """3D vector class"""
     __slots__ = ["x", "y", "z"]
+    x: float
+    y: float
+    z: float
 
     def __init__(self, x=0, y=0, z=0):
-        if isinstance(x, Iterable):
-            self.x, self.y, self.z = x[0], x[1], x[2]
-        else:
-            self.x, self.y, self.z = x, y, z
+        self.x, self.y, self.z = x, y, z
 
     def __abs__(self) -> float:
         return self.magnitude()

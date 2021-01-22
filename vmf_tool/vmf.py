@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import shutil
 from typing import Dict, List
@@ -8,51 +10,56 @@ from . import parser
 
 class Vmf:
     _vmf: parser.Namespace
-    filename: str
-    raw_brushes: Dict[int, parser.Namespace]
-    brushes: Dict[int, brushes.Solid]
     brush_entities: Dict[int, List[int]]
+    brushes: Dict[int, brushes.Brush]
+    detail_material: str = "detail/detailsprites"
+    detail_vbsp: str = "detail.vbsp"
     entities: Dict[int, parser.Namespace]
-    skybox: str
-    detail_material: str
-    detail_vbsp: str
-    import_errors: List[str]
+    filename: str
+    hidden: Dict[str, List[int]]
+    import_errors: List[str] = []
+    raw_brushes: Dict[int, parser.Namespace]
+    skybox: str = "sky_tf2_04"
+    # TODO: setters to update self._vmf properties
 
     def __init__(self, filename: str):
         self.filename = filename
-        if os.path.exists(self.filename):
-            self.load()
-        else:
-            # create a blank .vmf namespace & connections
-            self.brushes = dict()
-            self.brush_entities = dict()
-            self.entities = []
+        # create base .vmf
+        worldspawn = parser.Namespace(id="1", mapversion="0", classname="worldspawn", solid=[],
+                                      detailmaterial=self.detail_material, detailvbsp="detailvbsp",
+                                      maxpropscreenwidth="-1", skyname=self.skybox)
+        self._vmf = parser.Namespace(world=worldspawn, entity=[])
+        # clear all dicts
+        self.brush_entities = dict()
+        self.brushes = dict()
+        self.entities = dict()
+        self.hidden = {"brushes": [], "entities": []}
+        self.raw_brushes = dict()
 
-    def load(self):
-        # how could a loading bar measure progress?
-        with open(self.filename, "r") as vmf_file:
-            self._vmf = parser.parse(vmf_file)
-        # map the raw Namespace with parser.scope
-        # use Vmf @property to mutate the namespace directly
-        # allowing for a remapped .vmf with edit history (CRDT support)
+    @staticmethod
+    def from_file(filename) -> Vmf:
+        out = Vmf(filename)
+        # TODO: yield progress for a loading bar
+        with open(filename, "r") as vmf_file:
+            out._vmf = parser.parse(vmf_file)
 
-        self.load_world_brushes()
-        self.load_entities()  # & brushes tied to entities
-        self.convert_solids()  # self.raw_brushes: parser.Namespace -> self.brushes: brushes.Solid
+        out.load_world_brushes()
+        out.load_entities()  # & brushes tied to entities
+        out.convert_solids()  # out.raw_brushes: parser.Namespace -> out.brushes: brushes.Brush
 
         # groups
         # user visgroups
-        # hidden state
 
-        # Worldspawn:
-        self.skybox = self._vmf.world.skyname
-        self.detail_material = self._vmf.world.detailmaterial
-        self.detail_vbsp = self._vmf.world.detailvbsp
+        out.skybox = out._vmf.world.skyname
+        out.detail_material = out._vmf.world.detailmaterial
+        out.detail_vbsp = out._vmf.world.detailvbsp
+        return out
 
     def load_world_brushes(self):
         """move world solids from namespace to self"""
         self.raw_brushes = {int(b.id): b for b in getattr(self._vmf.world, "solid", list())}
         # ^ {id: brush}
+        # TODO: add hidden brush.ids to self.hidden["brushes"]
 
     def load_entities(self):
         """move entities to self & collect solids from brush based entities"""
@@ -67,15 +74,16 @@ class Vmf:
                     entity_brushes = {b.id: b for b in entity.solid if isinstance(b, parser.Namespace)}
                     self.raw_brushes.update(entity_brushes)
                     self.brush_entities[entity_id] = list(entity_brushes.keys())
+        # TODO: add hidden entity & brush ids to self.hidden
 
     def convert_solids(self):
-        """self.raw_brushes: parser.Namespace -> self.brushes: brushes.Solid"""
+        """self.raw_brushes: parser.Namespace -> self.brushes: brushes.Brush"""
         self.import_errors = list()
         self.brushes = dict()
         # ^ {brush.id: brush}
         for i, brush_id in enumerate(self.raw_brushes):
             try:
-                brush = brushes.Solid(self.raw_brushes[brush_id])
+                brush = brushes.Brush.from_namespace(self.raw_brushes[brush_id])
             except Exception as exc:
                 self.import_errors.append("\n".join(
                     [f"Solid #{i} id: {brush_id} is invalid.",
@@ -83,9 +91,10 @@ class Vmf:
             else:
                 self.brushes[brush_id] = brush
 
-    def save_to_file(self, filename: str = ""):
-        # TODO: update self._vmf with changes
+    def save_as(self, filename: str = ""):
+        """saves to self.filename if no filename is given"""
         # TODO: store hidden state of solids & entities
+        # TODO: increment mapversion
 
         def is_world_brush(brush):
             return not any([brush.id in b_ids for b_ids in self.brush_entities.values()])
@@ -106,4 +115,4 @@ class Vmf:
             old_filename, ext = os.path.splitext(filename)
             shutil.copy(filename, f"{old_filename}.vmx")
         with open(filename, "w") as file:
-            file.write(parser.text_from(self._vmf))
+            file.write(self._vmf.as_string())
