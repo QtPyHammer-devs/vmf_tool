@@ -1,5 +1,3 @@
-import os
-
 import vmf_tool
 
 
@@ -8,21 +6,14 @@ class TestVmfMethods:
         test2 = vmf_tool.Vmf.from_file("tests/mapsrc/test2.vmf")
         assert len(test2.import_errors) == 0
 
-    def test_save_to_file(self):
+    def test_save_quality(self):
         original_filename = "tests/mapsrc/test2.vmf"
-        folder = os.path.dirname(original_filename)
-        filename = os.path.basename(original_filename)
-
-        saved_filename = os.path.join(folder, f"test_save_{filename}")
+        saved_filename = "tests/mapsrc/save_test.vmf"
         vmf_tool.Vmf.from_file(original_filename).save_as(saved_filename)
 
-        # assert the saved file has the same objects with "close-enough" attributes
-        # 1 to 1 text accuracy isn't nessecary
-
-        # TODO: refactor
         original_vmf = vmf_tool.Vmf.from_file(original_filename)
         saved_vmf = vmf_tool.Vmf.from_file(saved_filename)
-        os.remove(saved_filename)
+        # os.remove(saved_filename)
         # TODO: delete saved_filename.vmx if it exists
 
         assert len(saved_vmf.import_errors) == len(original_vmf.import_errors)
