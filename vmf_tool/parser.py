@@ -5,22 +5,18 @@ import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
 
 
-def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespace:
+def parse(file: Union[io.TextIOWrapper, io.StringIO]) -> Namespace:
     """.vmf text -> Namespace"""
-    if not isinstance(string_or_file, (str, io.TextIOWrapper, io.StringIO)):
-        raise RuntimeError(f"{string_or_file} is neither a string nor a file")
-    if isinstance(string_or_file, str):  # make string file-like
-        file = io.StringIO(string_or_file)
-    else:  # it's a file
-        file = string_or_file
-
     out_namespace = Namespace()
+    # some levels of the .vmf need to be lists for simpler reading & writing elsewhere
     # out_namespace = Namespace(world=Namespace(solid=[]), entity=[])
+    # basic_entity = Namespace(solid=[] hidden=[])
     current_scope = Scope()
     previous_line = str()
     for line_number, line in enumerate(file.readlines()):
         try:
             new_namespace = Namespace(_line=line_number)
+            # new_basic_entity = ...
             current_target = current_scope.get_from(out_namespace)
             line = line.strip()  # cleanup spacing
             if line == "" or line.startswith("//"):  # ignore blank / comments
@@ -28,11 +24,12 @@ def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespac
             elif line == "{":  # START declaration
                 previous_line = previous_line.strip('"')
                 current_target.add_attr(previous_line, new_namespace)
-                # TODO: aim scope at newly created location
                 current_scope.add(previous_line)
+                # check if scope is aimed at a key that occured more than once
                 current_target = current_scope.get_from(out_namespace)
                 if isinstance(current_target, list):
                     current_scope.add(len(current_target) - 1)
+                # ^ scoping into an existing list should be a method instead
             elif line == "}":  # END declaration
                 current_scope.retreat()
             elif '" "' in line:  # "KEY" "VALUE"
@@ -45,7 +42,7 @@ def parse(string_or_file: Union[str, io.TextIOWrapper, io.StringIO]) -> Namespac
                 current_target.add_attr(key, value)
             previous_line = line
         except Exception as exc:
-            print("error on line {0:04d}:\n{1}\n{2}".format(line_number, previous_line, line))
+            print("Error on line {0:04d}:\n{1}\n{2}".format(line_number, previous_line, line))
             raise exc
     return out_namespace
 
@@ -182,8 +179,9 @@ class Namespace:
                         out.append(f"""{indent}"{key}" "{duplicate_keyvalue}"\n""")
                 elif isinstance(value[0], (dict, Namespace)):
                     for child_namespace in value:  # BRANCH B-2: Recurse
-                        out.append(f"""{indent}{key}\n{indent}""" + "{\n")
-                        out.append(child_namespace.as_string(depth + 1))
+                        if len([k for k in child_namespace if k != "_line"]) > 0:  # ignore The Empty Child
+                            out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+                            out.append(child_namespace.as_string(depth + 1))
             else:
                 raise RuntimeError(f"Found a non-string: {value}")
         if depth > 0:  # close BRANCH B-2 for parent

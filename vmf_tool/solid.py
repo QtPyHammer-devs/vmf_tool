@@ -7,6 +7,95 @@ from . import parser
 from . import vector
 
 
+class Brush:
+    _source: parser.Namespace
+    colour: List[float] = (1.0, 0.0, 1.0)
+    faces: list[Face] = []
+    id: int = 0
+    is_displacement: bool = False  # change to property
+
+    @staticmethod
+    def from_bounds(mins: List[float], maxs: List[float], material: str = "TOOLS/TOOLSNODRAW") -> Brush:
+        """Make cube"""
+        mins, maxs = vector.vec3(*mins), vector.vec3(*maxs)
+        brush = Brush()
+
+        def face(*points):
+            return Face.from_polygon([*map(lambda P: vector.vec3(*P), points)], material)
+        z = maxs.z
+        pos_Z = face((mins.x, maxs.y, z), (maxs.x, maxs.y, z), (maxs.x, mins.y, z), (mins.x, mins.y, z))
+        z = mins.z
+        neg_Z = face((mins.x, mins.y, z), (mins.x, maxs.y, z), (maxs.x, maxs.y, z), (maxs.x, mins.y, z))
+        y = maxs.y
+        pos_Y = face((mins.x, y, maxs.z), (mins.x, y, mins.z), (maxs.x, y, mins.z), (maxs.x, y, maxs.z))
+        y = mins.y
+        neg_Y = face((mins.x, y, mins.z), (mins.x, y, maxs.z), (maxs.x, y, maxs.z), (maxs.x, y, mins.z))
+        x = maxs.x
+        pos_X = face((x, maxs.y, maxs.z), (x, maxs.y, mins.z), (x, mins.y, mins.z), (x, mins.y, maxs.z))
+        x = mins.x
+        neg_X = face((x, mins.y, mins.z), (x, maxs.y, mins.z), (x, maxs.y, maxs.z), (x, mins.y, maxs.z))
+        brush.faces = [pos_Z, neg_Z, pos_Y, neg_Y, pos_X, neg_X]
+        return brush
+
+    @staticmethod
+    def from_namespace(solid: parser.Namespace) -> Brush:
+        """Initialise from namespace (vmf import)"""
+        brush = Brush()
+        brush._source = solid  # preserved for debugging
+        brush.id = int(solid.id)
+        brush.colour = tuple(int(x) / 255 for x in solid.editor.color.split())
+
+        brush.faces = [*map(Face.from_namespace, solid.side)]
+        if any([hasattr(f, "displacement") for f in brush.faces]):
+            brush.is_displacement = True
+            # TODO: make this a property
+
+        for i, f in enumerate(brush.faces):
+            normal, distance = f.plane
+            if abs(normal.z) != 1:
+                non_parallel = vector.vec3(z=-1)
+            else:
+                non_parallel = vector.vec3(y=-1)
+            local_y = (non_parallel * normal).normalise()
+            local_x = (local_y * normal).normalise()
+            center = sum(f.polygon, vector.vec3()) / 3
+            # ^ centered on string triangle, but rounding errors abound
+            # however, using vector.vec3 does mean math.fsum is utilitsed
+            radius = 10 ** 4  # should be larger than any reasonable brush
+            ngon = [center + ((-local_x + local_y) * radius),
+                    center + ((local_x + local_y) * radius),
+                    center + ((local_x + -local_y) * radius),
+                    center + ((-local_x + -local_y) * radius)]
+            for other_f in brush.faces:
+                if other_f.plane == f.plane:  # skip yourself
+                    continue
+                ngon, offcut = clip(ngon, other_f.plane).values()
+            brush.faces[i].polygon = ngon
+            if hasattr(f, "displacement") and len(ngon) != 4:
+                raise RuntimeError("face id {f.id}'s displacement is invalid (face has {len(ngon)} sides)")
+                # solid is probably invalid
+        return brush
+
+    def as_namespace(self) -> parser.Namespace:
+        self._source.id = str(self.id)
+        self._source.side = [f.as_namespace() for f in self.faces]
+        self._source.editor.color = " ".join([str(int(255 * x)) for x in self.colour])
+        # TODO: update hidden state
+        return self._source
+
+    def __iter__(self):
+        return iter(self.faces)
+
+    def __repr__(self):
+        return f"<Solid id={self.id}, {len(self.faces)} sides>"
+
+    def translate(self, offset: vector.vec3, texture_lock=False, displacement_lock=False):
+        # apply offset to plane & polygon of each face
+        # if texture lock is ON, recalculate each face's UV axes
+        # if displacement_lock is ON, recalculate all displacement normals & distances
+        raise NotImplementedError()
+
+
 class Displacement:
     alphas: List[List[vector.vec3]] = []
     distances: List[List[float]] = []
@@ -99,20 +188,22 @@ class Face:
     vaxis: TextureVector
 
     @staticmethod
-    def from_polygon(self, polygon: List[vector.vec3] = [], material: str = "TOOLS/TOOLSNODRAW"):
+    def from_polygon(polygon: List[vector.vec3] = [], material: str = "TOOLS/TOOLSNODRAW") -> Face:
+        face = Face()
         if len(polygon) < 3:
             raise RuntimeError(f"{polygon} is not a valid polygon!")
-        self.polygon = polygon
+        face.polygon = polygon
         A, B, C = polygon[:3]
-        self.plane = plane_of(A, B, C)
+        face.plane = plane_of(A, B, C)
         # calculate "face" texture projection
-        self.uaxis = TextureVector(*(A - B), 0, 0.25)
-        self.vaxis = TextureVector(*(A - polygon[-1]), 0, 0.25)
-        self.id = 0  # TODO: each id must be unique
-        self.material = material
-        self.rotation = 0.0
-        self.lightmap_scale = 16
-        self.smoothing_groups = 0
+        face.uaxis = TextureVector(*(A - B), 0, 0.25)
+        face.vaxis = TextureVector(*(A - polygon[-1]), 0, 0.25)
+        face.id = 0  # TODO: each id must be unique
+        face.material = material
+        face.rotation = 0.0
+        face.lightmap_scale = 16
+        face.smoothing_groups = 0
+        return face
 
     @staticmethod
     def from_namespace(side: parser.Namespace) -> Face:
@@ -147,8 +238,8 @@ class Face:
         side.plane = " ".join([f"({P[0]} {P[1]} {P[2]})" for P in self.polygon[:3]])
         # ^ lazy method (accuracy will be lost, solid may become invalid over time)
         side.material = self.material
-        side.uaxis = self.uaxis.as_string()
-        side.vaxis = self.vaxis.as_string()
+        side.uaxis = str(self.uaxis)
+        side.vaxis = str(self.vaxis)
         side.rotation = str(self.rotation)
         side.lightmapscale = str(self.lightmap_scale)
         side.smoothing_groups = str(self.smoothing_groups)
@@ -156,10 +247,9 @@ class Face:
             side.dispinfo = self.displacement.as_namespace()
         return side
 
-    def uv_at(self, position: vector.vec3) -> vector.vec2:
-        u = self.uaxis.linear_pos(position)
-        v = self.vaxis.linear_pos(position)
-        return vector.vec2(u, v)
+    def extrude(self, depth) -> Brush:
+        """Extrude into a brush"""
+        raise NotImplementedError()
 
     def sew_displacements(self, *others):
         # TODO: .vmf with subdivided disps and .obj model of compiled disp for comparison
@@ -167,97 +257,10 @@ class Face:
         # will require a method for represtenting displacement vertices
         raise NotImplementedError()
 
-    def extrude(self, depth) -> Brush:
-        """Extrude into a brush"""
-        raise NotImplementedError()
-
-
-class Brush:
-    _source: parser.Namespace
-    colour: List[float] = (1.0, 0.0, 1.0)
-    faces: list[Face] = []
-    id: int = 0
-    is_displacement: bool = False  # change to property
-
-    @staticmethod
-    def from_bounds(mins: vector.vec3, maxs: vector.vec3) -> Brush:
-        """Make cube"""
-        brush = Brush()
-
-        def face(*points):
-            return Face.from_polygon(map(lambda P: vector.vec3(*P), points))
-        z = maxs.z
-        pos_Z = face((mins.x, maxs.y, z), (maxs.x, maxs.y, z), (maxs.x, mins.y, z), (mins.x, mins.y, z))
-        z = mins.z
-        neg_Z = face((mins.x, mins.y, z), (mins.x, maxs.y, z), (maxs.x, maxs.y, z), (maxs.x, mins.y, z))
-        y = maxs.y
-        pos_Y = face((mins.x, y, maxs.z), (mins.x, y, mins.z), (maxs.x, y, mins.z), (maxs.x, y, maxs.z))
-        y = mins.y
-        neg_Y = face((mins.x, y, mins.z), (mins.x, y, maxs.z), (maxs.x, y, maxs.z), (maxs.x, y, mins.z))
-        x = maxs.x
-        pos_X = face((x, maxs.y, maxs.z), (x, maxs.y, mins.z), (x, mins.y, mins.z), (x, mins.y, maxs.z))
-        x = mins.x
-        neg_X = face((x, mins.y, mins.z), (x, maxs.y, mins.z), (x, maxs.y, maxs.z), (x, mins.y, maxs.z))
-        brush.faces = [pos_Z, neg_Z, pos_Y, neg_Y, pos_X, neg_X]
-        return brush
-
-    @staticmethod
-    def from_namespace(solid: parser.Namespace) -> Brush:
-        """Initialise from namespace (vmf import)"""
-        brush = Brush()
-        brush._source = solid  # preserved for debugging
-        brush.id = int(solid.id)
-        brush.colour = tuple(int(x) / 255 for x in solid.editor.color.split())
-
-        brush.faces = [*map(Face.from_namespace, solid.side)]
-        if any([hasattr(f, "displacement") for f in brush.faces]):
-            brush.is_displacement = True
-            # TODO: make this a property
-
-        for i, f in enumerate(brush.faces):
-            normal, distance = f.plane
-            if abs(normal.z) != 1:
-                non_parallel = vector.vec3(z=-1)
-            else:
-                non_parallel = vector.vec3(y=-1)
-            local_y = (non_parallel * normal).normalise()
-            local_x = (local_y * normal).normalise()
-            center = sum(f.polygon, vector.vec3()) / 3
-            # ^ centered on string triangle, but rounding errors abound
-            # however, using vector.vec3 does mean math.fsum is utilitsed
-            radius = 10 ** 4  # should be larger than any reasonable brush
-            ngon = [center + ((-local_x + local_y) * radius),
-                    center + ((local_x + local_y) * radius),
-                    center + ((local_x + -local_y) * radius),
-                    center + ((-local_x + -local_y) * radius)]
-            for other_f in brush.faces:
-                if other_f.plane == f.plane:  # skip yourself
-                    continue
-                ngon, offcut = clip(ngon, other_f.plane).values()
-            brush.faces[i].polygon = ngon
-            if hasattr(f, "displacement") and len(ngon) != 4:
-                raise RuntimeError("face id {f.id}'s displacement is invalid (face has {len(ngon)} sides)")
-                # solid is probably invalid
-        return brush
-
-    def as_namespace(self) -> parser.Namespace:
-        self._source.id = str(self.id)
-        self._source.side = [f.as_namespace() for f in self.faces]
-        self._source.editor.color = " ".join([str(int(255 * x)) for x in self.colour])
-        # TODO: update hidden state
-        return self._source
-
-    def __iter__(self):
-        return iter(self.faces)
-
-    def __repr__(self):
-        return f"<Solid id={self.id}, {len(self.faces)} sides>"
-
-    def translate(self, offset: vector.vec3, texture_lock=False, displacement_lock=False):
-        # apply offset to plane & polygon of each face
-        # if texture lock is ON, recalculate each face's UV axes
-        # if displacement_lock is ON, recalculate all displacement normals & distances
-        raise NotImplementedError()
+    def uv_at(self, position: vector.vec3) -> vector.vec2:
+        u = self.uaxis.linear_pos(position)
+        v = self.vaxis.linear_pos(position)
+        return vector.vec2(u, v)
 
 
 class TextureVector:  # pairing uaxis and vaxis together would be nice
@@ -271,6 +274,12 @@ class TextureVector:  # pairing uaxis and vaxis together would be nice
         self.offset = offset
         self.scale = scale
 
+    def __str__(self) -> str:
+        return f"[{self.vector.x} {self.vector.y} {self.vector.z} {self.offset}] {self.scale}"
+
+    def align_to_normal(self, normal):
+        raise NotImplementedError()
+
     @staticmethod
     def from_string(texvec: str) -> TextureVector:
         """expects: '[X Y Z Offset] Scale'"""
@@ -281,12 +290,6 @@ class TextureVector:  # pairing uaxis and vaxis together would be nice
     def linear_pos(self, position: vector.vec3):
         """half a uv, need 2 TextureVectors for the full uv"""
         return (vector.dot(position, self.vector) + self.offset) / self.scale
-
-    def align_to_normal(self, normal):
-        raise NotImplementedError()
-
-    def as_string(self) -> str:
-        return f"[{self.vector.x} {self.vector.y} {self.vector.z} {self.offset}] {self.scale}"
 
     def wrap(self, plane):  # alt + right click
         raise NotImplementedError()
@@ -326,5 +329,6 @@ def plane_of(A, B, C):
 def triangle_of(string):
     """"'(X Y Z) (X Y Z) (X Y Z)' --> (vec3(X, Y, Z), vec3(X, Y, Z), vec3(X, Y, Z))"""
     points = re.findall(r"(?<=\().+?(?=\))", string)
+    # print("!~", string, points)
     def vector_of(P): return vector.vec3(*map(float, P.split(" ")))
     return tuple(map(vector_of, points))

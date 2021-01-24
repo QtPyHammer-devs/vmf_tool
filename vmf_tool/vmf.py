@@ -3,25 +3,26 @@ from __future__ import annotations
 import os
 import shutil
 import traceback
-from typing import Dict, List
+from typing import Dict, List, Set
 
-from . import brushes
+from . import solid
 from . import parser
 
 
 class Vmf:
     _vmf: parser.Namespace
     brush_entities: Dict[int, List[int]]
-    brushes: Dict[int, brushes.Brush]
+    brushes: Dict[int, solid.Brush]
     detail_material: str = "detail/detailsprites"
     detail_vbsp: str = "detail.vbsp"
     entities: Dict[int, parser.Namespace]
     filename: str
-    hidden: Dict[str, List[int]]
+    hidden: Dict[str, Set[int]]
     import_errors: Dict[str, str]
     raw_brushes: Dict[int, parser.Namespace]
     skybox: str = "sky_tf2_04"
     # TODO: setters to update self._vmf properties
+    # TODO: convenience method / property for modifying entities by name
 
     def __init__(self, filename: str):
         self.filename = filename
@@ -34,9 +35,13 @@ class Vmf:
         self.brush_entities = dict()
         self.brushes = dict()
         self.entities = dict()
-        self.hidden = {"brushes": [], "entities": []}
+        self.hidden = {"brushes": set(), "entities": set()}
+        # ^ {"brushes": [brush.id], "entities": [entity.id]}
         self.import_errors = dict()
         self.raw_brushes = dict()
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__} {self.filename}>"
 
     @staticmethod
     def from_file(filename) -> Vmf:
@@ -60,23 +65,31 @@ class Vmf:
     def load_world_brushes(self):
         """move world solids from namespace to self"""
         self.raw_brushes = {int(b.id): b for b in getattr(self._vmf.world, "solid", list())}
-        # ^ {id: brush}
-        # TODO: add hidden brush.ids to self.hidden["brushes"]
+        hidden = getattr(self._vmf.world, "hidden", list())
+        for namespace in hidden:
+            self.raw_brushes[int(namespace.solid.id)] = namespace.solid
+            self.hidden["brushes"].add(int(namespace.solid.id))
 
     def load_entities(self):
         """move entities to self & collect solids from brush based entities"""
         self.entities = {int(e.id): e for e in getattr(self._vmf, "entity", list())}
         # ^ {entity.id: entity}
-        # TODO: convenience method / property for modifying entities by name
+        hidden = getattr(self._vmf, "hidden", list())
+        for namespace in hidden:
+            self.hidden["entities"].add(int(namespace.entity.id))
+            self.entities[int(namespace.entity.id)] = namespace.entity
         self.brush_entities = dict()
         # ^ {entity.id: [brush.id, brush.id, ...]}
         for entity_id, entity in self.entities.items():
+            hidden = getattr(entity, "hidden", list())
+            for namespace in hidden:
+                self.hidden["brushes"].add(int(namespace.solid.id))
+                entity.add_attr("solid", namespace.solid)
             if hasattr(entity, "solid"):
                 if any([isinstance(b, parser.Namespace) for b in entity.solid]):
                     entity_brushes = {b.id: b for b in entity.solid if isinstance(b, parser.Namespace)}
                     self.raw_brushes.update(entity_brushes)
                     self.brush_entities[entity_id] = list(entity_brushes.keys())
-        # TODO: add hidden entity & brush ids to self.hidden
 
     def convert_solids(self):
         """self.raw_brushes: parser.Namespace -> self.brushes: brushes.Brush"""
@@ -86,7 +99,7 @@ class Vmf:
         # ^ {brush.id: brush}
         for i, brush_id in enumerate(self.raw_brushes):
             try:
-                brush = brushes.Brush.from_namespace(self.raw_brushes[brush_id])
+                brush = solid.Brush.from_namespace(self.raw_brushes[brush_id])
             except Exception as exc:
                 error_text = f"Solid #{i} id: {brush_id} is invalid.\n{exc.__class__.__name__}: {exc}"
                 self.import_errors[error_text] = traceback.format_exc()
@@ -101,15 +114,24 @@ class Vmf:
         def is_world_brush(brush):
             return not any([brush.id in b_ids for b_ids in self.brush_entities.values()])
 
-        self._vmf.world.brush = []
-        for brush in self.brushes.values():
-            if is_world_brush(brush):
-                self._vmf.world.brush.append(brush.as_namespace())
+        self._vmf.world.solid = []
+        self._vmf.world.hidden = []
+        for brush in filter(is_world_brush, self.brushes.values()):
+            if brush.id in self.hidden["brushes"]:
+                self._vmf.world.hidden.append(brush.as_namespace)
+            else:
+                self._vmf.world.solid.append(brush.as_namespace())
 
+        # self._vmf.world.hidden = []
         # for entity in self.entities.values():
         #    if entity.id in self.brush_entities:
         #        entity.brushes = [self.brushes[b.id] for b in self.brush_entities[entity.id]]
+        #        # TODO: hide brushes within entity
+        #        # UNTESTED: what do partially hidden brush_entities look like?
+        #    # TODO: wrap entity in a "hidden" Namespace if needed
         #    self._vmf.entity.append(entity.as_namespace())
+
+        # TODO: set self._vmf.world.quickhide.count
 
         if filename == "":  # default
             filename = self.filename
