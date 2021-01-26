@@ -8,9 +8,6 @@ from typing import Any, ItemsView, Iterable, List, Mapping, Union
 def parse(file: Union[io.TextIOWrapper, io.StringIO]) -> Namespace:
     """.vmf text -> Namespace"""
     out_namespace = Namespace()
-    # some levels of the .vmf need to be lists for simpler reading & writing elsewhere
-    # out_namespace = Namespace(world=Namespace(solid=[]), entity=[])
-    # basic_entity = Namespace(solid=[] hidden=[])
     current_scope = Scope()
     previous_line = str()
     for line_number, line in enumerate(file.readlines()):

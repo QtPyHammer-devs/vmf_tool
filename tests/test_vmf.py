@@ -63,3 +63,17 @@ def test_connections():  # ISSUE #13  (Unwanted removal of duplicate keys...)
     # ^ need a more convenient way of accessing entities by name
     assert len(cp1.connections.OnCapTeam1) == 2
     assert len(cp1.connections.OnCapTeam2) == 2
+
+
+def test_cleanup_namespace():
+    vmf = vmf_tool.Vmf("")
+    with open("tests/mapsrc/test_hidden_objects.vmf") as file:
+        vmf._vmf = vmf_tool.parser.parse(file)
+    vmf.cleanup_namespace()
+    assert isinstance(vmf._vmf.entity, list)
+    assert isinstance(vmf._vmf.hidden, list)
+    assert isinstance(vmf._vmf.world.hidden, list)
+    assert isinstance(vmf._vmf.world.solid, list)
+    for namespace in vmf._vmf.hidden:
+        assert isinstance(namespace.entity.hidden, list)
+        assert isinstance(namespace.entity.solid, list)

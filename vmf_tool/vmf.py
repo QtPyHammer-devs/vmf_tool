@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import traceback
-from typing import Dict, List, Set
+from typing import Any, Dict, List, Set
 
 from . import solid
 from . import parser
@@ -50,6 +50,7 @@ class Vmf:
         with open(filename, "r") as vmf_file:
             out._vmf = parser.parse(vmf_file)
 
+        out.cleanup_namespace()
         out.load_world_brushes()
         out.load_entities()  # & brushes tied to entities
         out.convert_solids()  # out.raw_brushes: parser.Namespace -> out.brushes: brushes.Brush
@@ -61,6 +62,30 @@ class Vmf:
         out.detail_material = out._vmf.world.detailmaterial
         out.detail_vbsp = out._vmf.world.detailvbsp
         return out
+
+    def cleanup_namespace(self):
+        def list_if_not(unknown) -> List[Any]:
+            if not isinstance(unknown, list):
+                unknown = [unknown]
+            return unknown
+
+        # world brushes
+        self._vmf.world.solid = list_if_not(getattr(self._vmf.world, "solid", []))
+        # TODO: groups (self._vmf.world.group)
+        # hidden world brushes
+        self._vmf.world.hidden = list_if_not(getattr(self._vmf.world, "hidden", []))
+        # entities
+        self._vmf.entity = list_if_not(getattr(self._vmf, "entity", []))
+        # brush entities' brushes
+        for i, entity in enumerate(self._vmf.entity):
+            self._vmf.entity[i].solid = list_if_not(getattr(entity, "solid", []))
+            self._vmf.entity[i].hidden = list_if_not(getattr(entity, "hidden", []))
+        # hidden entities
+        self._vmf.hidden = list_if_not(getattr(self._vmf, "hidden", []))
+        # hidden brush entities' brushes
+        for i, namespace in enumerate(self._vmf.hidden):
+            self._vmf.hidden[i].entity.solid = list_if_not(getattr(namespace.entity, "solid", []))
+            self._vmf.hidden[i].entity.hidden = list_if_not(getattr(namespace.entity, "hidden", []))
 
     def load_world_brushes(self):
         """move world solids from namespace to self"""
