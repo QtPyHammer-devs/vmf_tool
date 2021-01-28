@@ -235,7 +235,7 @@ class Face:
         # A, B, C = plane_origin, plane_origin + local_x, plane_origin + local_y
         # # ensure B & C are on grid ...
         # side.plane = " ".join(f"({P.x} {P.y} {P.z})" for P in (A, B, C))
-        side.plane = " ".join([f"({P[0]} {P[1]} {P[2]})" for P in self.polygon[:3]])
+        side.plane = " ".join([f"({P[0]} {P[1]} {P[2]})" for P in self.polygon[:3]])  # <- failing
         # ^ lazy method (accuracy will be lost, solid may become invalid over time)
         side.material = self.material
         side.uaxis = str(self.uaxis)

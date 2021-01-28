@@ -169,16 +169,13 @@ class Namespace:
                 out.append(f"""{indent}{key}\n{indent}""" + "{\n")
                 out.append(value.as_string(depth + 1))
             elif isinstance(value, list):
-                if len(value) == 0:
-                    continue  # skip empty lists
-                elif isinstance(value[0], str):  # key occured more that once (entity connections etc.)
-                    for duplicate_keyvalue in value:
-                        out.append(f"""{indent}"{key}" "{duplicate_keyvalue}"\n""")
-                elif isinstance(value[0], (dict, Namespace)):
-                    for child_namespace in value:  # BRANCH B-2: Recurse
-                        if len([k for k in child_namespace if k != "_line"]) > 0:  # ignore The Empty Child
+                for child in value:
+                    if isinstance(child, str):  # key occured more that once (entity connections etc.)
+                        out.append(f"""{indent}"{key}" "{child}"\n""")
+                    elif isinstance(child, (dict, Namespace)):  # BRANCH B-2: Recurse
+                        if len([k for k in child if k != "_line"]) > 0:  # ignore The Empty Child
                             out.append(f"""{indent}{key}\n{indent}""" + "{\n")
-                            out.append(child_namespace.as_string(depth + 1))
+                            out.append(child.as_string(depth + 1))
             else:
                 raise RuntimeError(f"Found a non-string: {value}")
         if depth > 0:  # close BRANCH B-2 for parent

@@ -21,8 +21,8 @@ def test_save_hidden():
     test2.hidden["entities"].add(13)  # first entity (prop_dynamic  cap_point_base.mdl)
     test2.hidden["entities"].add(1652)  # first brush entity (func_detail  8 brushes)
     # TODO: test hiding only some of a brush entity's brushes
-    test2.save_as("tests/mapsrc/test2_resaved.vmf")
-    test2_resaved = Vmf.from_file("tests/mapsrc/test2_resaved.vmf")
+    test2.save_as("tests/mapsrc/save_hidden_test.vmf")
+    test2_resaved = Vmf.from_file("tests/mapsrc/save_hidden_test.vmf")
 
     assert len(test2_resaved.hidden["brushes"]) >= 2
 
