@@ -7,11 +7,12 @@ def test_load_hidden():
     vmf_file = Vmf.from_file("tests/mapsrc/test_hidden_objects.vmf")
     # check all hidden objects loaded
     assert len(vmf_file.import_errors) == 0
+    assert len(vmf_file.hidden["brushes"]) > len(vmf_file._vmf.world.solid)
     assert len(vmf_file.brushes) == 19  # BUG: hidden brushes attached to hidden entities not in brushes
     assert len(vmf_file.entities) == 4
     assert len(vmf_file.brush_entities) == 2  # func_detail, trigger_capture_area
-    assert set(vmf_file.hidden["brushes"]) == set([b.id for b in vmf_file.brushes])
-    assert set(vmf_file.hidden["entities"]) == set([e.id for e in vmf_file.entities])
+    assert set(vmf_file.hidden["brushes"]) == {b.id for b in vmf_file.brushes}
+    assert set(vmf_file.hidden["entities"]) == {e.id for e in vmf_file.entities}
 
 
 def test_save_hidden():
