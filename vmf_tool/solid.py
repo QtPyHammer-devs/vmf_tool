@@ -7,21 +7,25 @@ from . import parser
 from . import vector
 
 
+# TODO: global default material
+
 class Brush:
     _source: parser.Namespace
     colour: List[float] = (1.0, 0.0, 1.0)
     faces: list[Face] = []
     id: int = 0
-    is_displacement: bool = False  # change to property
+    is_displacement: bool = False  # TODO: use a property
 
     @staticmethod
     def from_bounds(mins: List[float], maxs: List[float], material: str = "TOOLS/TOOLSNODRAW") -> Brush:
-        """Make cube"""
+        """Make a cube"""
         mins, maxs = vector.vec3(*mins), vector.vec3(*maxs)
         brush = Brush()
 
         def face(*points):
             return Face.from_polygon([*map(lambda P: vector.vec3(*P), points)], material)
+
+        # NOTE: while it's tempting to generate these points with a loop, it's easier to debug like this
         z = maxs.z
         pos_Z = face((mins.x, maxs.y, z), (maxs.x, maxs.y, z), (maxs.x, mins.y, z), (mins.x, mins.y, z))
         z = mins.z
@@ -87,7 +91,7 @@ class Brush:
         return iter(self.faces)
 
     def __repr__(self):
-        return f"<Solid id={self.id}, {len(self.faces)} sides>"
+        return f"<Solid id={self.id} with {len(self.faces)} sides>"
 
     def translate(self, offset: vector.vec3, texture_lock=False, displacement_lock=False):
         # apply offset to plane & polygon of each face
@@ -118,6 +122,7 @@ class Displacement:
         disp.flags = int(dispinfo.flags)
         disp.elevation = int(dispinfo.elevation)
         disp.subdivided = bool(dispinfo.subdiv)
+        # TODO: apply subdivision when calculating point locations
         def floats(s): return tuple(map(float, s.split(" ")))
         row_count = (2 ** disp.power) + 1
         for i in range(row_count):
@@ -174,6 +179,13 @@ class Displacement:
         """simplify / subdivide"""
         raise NotImplementedError()
 
+    def sew(self, other: Face):
+        """Sew edge to meet other face"""
+        # TODO: if other is a disp, meet halfway
+        # TODO: if other is not a disp, snap to a valid edge
+        # TODO: if invalid, do nothing
+        raise NotImplementedError()
+
 
 class Face:
     displacement: Displacement  # optional
@@ -198,7 +210,9 @@ class Face:
         # calculate "face" texture projection
         face.uaxis = TextureVector(*(A - B), 0, 0.25)
         face.vaxis = TextureVector(*(A - polygon[-1]), 0, 0.25)
-        face.id = 0  # TODO: each id must be unique
+        # NOTE: vaxis is not guaranteed to be perpendicular to uaxis, skewing textures
+        face.id = 0
+        # TODO: ids should be globally unique
         face.material = material
         face.rotation = 0.0
         face.lightmap_scale = 16
@@ -227,7 +241,7 @@ class Face:
     def as_namespace(self) -> parser.Namespace:
         side = parser.Namespace()
         side.id = str(self.id)
-        # # ON-GRID PLANE:
+        # # ON-GRID PLANE: [expressing face as a ratio 1:1:0 @ (0, 0, 64)]
         # normal, distance = self.plane
         # plane_origin = normal * distance  # snap to grid
         # local_x = ...
@@ -251,13 +265,8 @@ class Face:
         """Extrude into a brush"""
         raise NotImplementedError()
 
-    def sew_displacements(self, *others):
-        # TODO: .vmf with subdivided disps and .obj model of compiled disp for comparison
-        # iirc selecting sewable disps affects the subdivision around the edges, how is this stored in the .vmf?
-        # will require a method for represtenting displacement vertices
-        raise NotImplementedError()
-
     def uv_at(self, position: vector.vec3) -> vector.vec2:
+        """use texture vecs to get UVs of face"""
         u = self.uaxis.linear_pos(position)
         v = self.vaxis.linear_pos(position)
         return vector.vec2(u, v)
@@ -320,13 +329,13 @@ def clip(poly, plane):
     return split_verts
 
 
-def plane_of(A, B, C):
+def plane_of(A: vector.vec3, B: vector.vec3, C: vector.vec3) -> (vector.vec3, float):
     """returns the plane (vec3 normal, float distance) the triangle ABC represents"""
     normal = ((A - B) * (C - B)).normalise()
     return (normal, vector.dot(normal, A))
 
 
-def triangle_of(string):
+def triangle_of(string: str) -> (vector.vec3, vector.vec3, vector.vec3):
     """"'(X Y Z) (X Y Z) (X Y Z)' --> (vec3(X, Y, Z), vec3(X, Y, Z), vec3(X, Y, Z))"""
     points = re.findall(r"(?<=\().+?(?=\))", string)
     # print("!~", string, points)

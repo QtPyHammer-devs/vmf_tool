@@ -45,7 +45,7 @@ def parse(file: Union[io.TextIOWrapper, io.StringIO]) -> Namespace:
 
 
 class Scope:
-    """Array of indices into a nested array"""
+    """Provides a mapping into a nested object"""
     def __init__(self, tiers: list = []):
         self.tiers = tiers
 
@@ -54,25 +54,26 @@ class Scope:
         repr_strings = []
         for tier in self.tiers:
             if isinstance(tier, str):
-                if re.match("^[A-Za-z_][A-Za-z_0-9]*$", tier):
+                if re.match("^[A-Za-z_][A-Za-z_0-9]*$", tier):  # valid attribute name
                     repr_strings.append(".{tier}")
-                else:  # tier is not a valid attribute
+                else:  # if invalid: present as a dict key
                     repr_strings.append("['{tier}']")
-            else:
+            else:  # default for object keys (int, float, tuple & other hashable types)
                 repr_strings.append(f"[{tier}]")
         return "".join(repr_strings)
 
     def add(self, tier: str):
-        """Go a layer deeper"""
         self.tiers.append(tier)
 
     def increment(self):
+        """If the current tier is an index into a list, increment that index"""
         if not isinstance(self.tiers[-1], int):
+            # raise an error if the current tier is not incrementable
             raise RuntimeError(f'"{self.tiers[-1]}" is not an integer')
         self.tiers[-1] += 1
 
     def get_from(self, namespace: Namespace) -> Any:  # getattr equivalent
-        """Get the value this scope points at in 'namespace'"""
+        """Get the value this scope points to in 'namespace'"""
         target = namespace
         for tier_number, tier in enumerate(self.tiers):
             try:
