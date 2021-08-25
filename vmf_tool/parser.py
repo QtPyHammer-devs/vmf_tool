@@ -39,7 +39,7 @@ def parse(file: Union[io.TextIOWrapper, io.StringIO]) -> Namespace:
                 current_target.add_attr(key, value)
             previous_line = line
         except Exception as exc:
-            print("Error on line {0:04d}:\n{1}\n{2}".format(line_number, previous_line, line))
+            print(f"Error on line {line_number:04d}:\n{previous_line}\n{line}")
             raise exc
     return out_namespace
 
