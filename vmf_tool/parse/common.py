@@ -1,47 +1,7 @@
 from __future__ import annotations
 
-import io
 import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
-
-
-def parse(file: Union[io.TextIOWrapper, io.StringIO]) -> Namespace:
-    """.vmf text -> Namespace"""
-    out_namespace = Namespace()
-    current_scope = Scope()
-    previous_line = str()
-    for line_number, line in enumerate(file.readlines()):
-        try:
-            new_namespace = Namespace(_line=line_number)
-            # new_basic_entity = ...
-            current_target = current_scope.get_from(out_namespace)
-            line = line.strip()  # cleanup spacing
-            if line == "" or line.startswith("//"):  # ignore blank / comments
-                continue
-            elif line == "{":  # START declaration
-                previous_line = previous_line.strip('"')
-                current_target.add_attr(previous_line, new_namespace)
-                current_scope.add(previous_line)
-                # check if scope is aimed at a key that occured more than once
-                current_target = current_scope.get_from(out_namespace)
-                if isinstance(current_target, list):
-                    current_scope.add(len(current_target) - 1)
-                # ^ scoping into an existing list should be a method instead
-            elif line == "}":  # END declaration
-                current_scope.retreat()
-            elif '" "' in line:  # "KEY" "VALUE"
-                key, value = line.split('" "')
-                key = key.lstrip('"')
-                value = value.rstrip('"')
-                current_target.add_attr(key, value)
-            elif line.count(" ") == 1:  # KEY VALUE
-                key, value = line.split()
-                current_target.add_attr(key, value)
-            previous_line = line
-        except Exception as exc:
-            print(f"Error on line {line_number:04d}:\n{previous_line}\n{line}")
-            raise exc
-    return out_namespace
 
 
 class Scope:
@@ -55,9 +15,9 @@ class Scope:
         for tier in self.tiers:
             if isinstance(tier, str):
                 if re.match("^[A-Za-z_][A-Za-z_0-9]*$", tier):  # valid attribute name
-                    repr_strings.append(".{tier}")
+                    repr_strings.append(f".{tier}")
                 else:  # if invalid: present as a dict key
-                    repr_strings.append("['{tier}']")
+                    repr_strings.append(f"['{tier}']")
             else:  # default for object keys (int, float, tuple & other hashable types)
                 repr_strings.append(f"[{tier}]")
         return "".join(repr_strings)
