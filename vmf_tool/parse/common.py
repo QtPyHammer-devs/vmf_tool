@@ -4,6 +4,10 @@ import re
 from typing import Any, ItemsView, Iterable, List, Mapping, Union
 
 
+# Glossary
+# singular: a key in a namespace, alone in it's tier
+# plural: a duplicate key which shares a tier with an identically named entry
+
 class Scope:
     """Provides a mapping into a nested object"""
     def __init__(self, tiers: list = []):
@@ -23,6 +27,7 @@ class Scope:
         return "".join(repr_strings)
 
     def add(self, tier: str):
+        # NOTE: this method does neither detects nor handles plurals
         self.tiers.append(tier)
 
     def increment(self):

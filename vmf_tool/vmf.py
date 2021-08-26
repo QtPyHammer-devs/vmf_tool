@@ -6,20 +6,21 @@ import traceback
 from typing import Any, Dict, List, Set
 
 from . import solid
-from . import parser
+from .parse import common
+from .parse import vmf as parse_vmf
 
 
 class Vmf:
-    _vmf: parser.Namespace
+    _vmf: common.Namespace
     brush_entities: Dict[int, List[int]]
     brushes: Dict[int, solid.Brush]
     detail_material: str = "detail/detailsprites"
     detail_vbsp: str = "detail.vbsp"
-    entities: Dict[int, parser.Namespace]
+    entities: Dict[int, common.Namespace]
     filename: str
     hidden: Dict[str, Set[int]]
     import_errors: Dict[str, str]
-    raw_brushes: Dict[int, parser.Namespace]
+    raw_brushes: Dict[int, common.Namespace]
     skybox: str = "sky_tf2_04"
     # TODO: setters to update self._vmf properties
     # TODO: convenience method / property for modifying entities by name
@@ -27,10 +28,10 @@ class Vmf:
     def __init__(self, filename: str):
         self.filename = filename
         # create base .vmf
-        worldspawn = parser.Namespace(id="1", mapversion="0", classname="worldspawn", solid=[],
-                                      detailmaterial=self.detail_material, detailvbsp=self.detail_vbsp,
-                                      maxpropscreenwidth="-1", skyname=self.skybox)
-        self._vmf = parser.Namespace(world=worldspawn, entity=[])
+        worldspawn = common.Namespace(id="1", mapversion="0", classname="worldspawn", solid=[],
+                                            detailmaterial=self.detail_material, detailvbsp=self.detail_vbsp,
+                                            maxpropscreenwidth="-1", skyname=self.skybox)
+        self._vmf = common.Namespace(world=worldspawn, entity=[])
         # clear all dicts
         self.brush_entities = dict()
         self.brushes = dict()
@@ -48,12 +49,12 @@ class Vmf:
         out = Vmf(filename)
         # TODO: yield progress for a loading bar
         with open(filename, "r") as vmf_file:
-            out._vmf = parser.parse(vmf_file)
+            out._vmf = parse_vmf.as_namespace(vmf_file.read())
 
         out.cleanup_namespace()
         out.load_world_brushes()
         out.load_entities()  # & brushes tied to entities
-        out.convert_solids()  # out.raw_brushes: parser.Namespace -> out.brushes: brushes.Brush
+        out.convert_solids()  # out.raw_brushes: common.Namespace -> out.brushes: brushes.Brush
 
         # groups
         # user visgroups
@@ -111,13 +112,13 @@ class Vmf:
                 self.hidden["brushes"].add(int(namespace.solid.id))
                 entity.add_attr("solid", namespace.solid)
             if hasattr(entity, "solid"):
-                if any([isinstance(b, parser.Namespace) for b in entity.solid]):
-                    entity_brushes = {b.id: b for b in entity.solid if isinstance(b, parser.Namespace)}
+                if any([isinstance(b, common.Namespace) for b in entity.solid]):
+                    entity_brushes = {b.id: b for b in entity.solid if isinstance(b, common.Namespace)}
                     self.raw_brushes.update(entity_brushes)
                     self.brush_entities[entity_id] = list(entity_brushes.keys())
 
     def convert_solids(self):
-        """self.raw_brushes: parser.Namespace -> self.brushes: brushes.Brush"""
+        """self.raw_brushes: common.Namespace -> self.brushes: brushes.Brush"""
         self.import_errors = dict()
         # ^ {"Error text": traceback}
         self.brushes = dict()

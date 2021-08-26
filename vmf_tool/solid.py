@@ -3,14 +3,14 @@ from __future__ import annotations
 import re
 from typing import List
 
-from . import parser
 from . import vector
+from .parse import common
 
 
 # TODO: global default material
 
 class Brush:
-    _source: parser.Namespace
+    _source: common.Namespace
     colour: List[float] = (1.0, 0.0, 1.0)
     faces: list[Face] = []
     id: int = 0
@@ -42,7 +42,7 @@ class Brush:
         return brush
 
     @staticmethod
-    def from_namespace(solid: parser.Namespace) -> Brush:
+    def from_namespace(solid: common.Namespace) -> Brush:
         """Initialise from namespace (vmf import)"""
         brush = Brush()
         brush._source = solid  # preserved for debugging
@@ -80,7 +80,7 @@ class Brush:
                 # solid is probably invalid
         return brush
 
-    def as_namespace(self) -> parser.Namespace:
+    def as_namespace(self) -> common.Namespace:
         self._source.id = str(self.id)
         self._source.side = [f.as_namespace() for f in self.faces]
         self._source.editor.color = " ".join([str(int(255 * x)) for x in self.colour])
@@ -115,7 +115,7 @@ class Displacement:
     triangle_tags: List[List[int]] = []  # walkable, buildable etc.
 
     @staticmethod
-    def from_namespace(dispinfo: parser.Namespace) -> Displacement:
+    def from_namespace(dispinfo: common.Namespace) -> Displacement:
         disp = Displacement()
         disp.power = int(dispinfo.power)
         disp.start = vector.vec3(*map(float, re.findall(r"(?<=[\[\ ]).+?(?=[\ \]])", dispinfo.startposition)))
@@ -149,20 +149,20 @@ class Displacement:
             disp.triangle_tags.append([*map(int, dispinfo.triangle_tags[row].split(" "))])
         return disp
 
-    def as_namespace(self) -> parser.Namespace:
-        dispinfo = parser.Namespace()
+    def as_namespace(self) -> common.Namespace:
+        dispinfo = common.Namespace()
         dispinfo.power = str(self.power)
         dispinfo.startposition = f"[{self.start.x} {self.start.y} {self.start.z}]"
         dispinfo.flags = str(self.flags)
         dispinfo.elevation = str(self.elevation)
         dispinfo.subdiv = "1" if self.subdivided else "0"
         # rows
-        dispinfo.alphas = parser.Namespace()
-        dispinfo.distances = parser.Namespace()
-        dispinfo.normals = parser.Namespace()
-        dispinfo.offset_normals = parser.Namespace()
-        dispinfo.offsets = parser.Namespace()
-        dispinfo.triangle_tags = parser.Namespace()
+        dispinfo.alphas = common.Namespace()
+        dispinfo.distances = common.Namespace()
+        dispinfo.normals = common.Namespace()
+        dispinfo.offset_normals = common.Namespace()
+        dispinfo.offsets = common.Namespace()
+        dispinfo.triangle_tags = common.Namespace()
         row_count = (2 ** self.power) + 1
         for i in range(row_count):
             row = f"row{i}"
@@ -172,7 +172,7 @@ class Displacement:
             dispinfo.normals[row] = " ".join([f"{n.x} {n.y} {n.z}" for n in self.normals[i]])
             dispinfo.offset_normals[row] = " ".join([f"{on.x} {on.y} {on.z}" for on in self.offset_normals[i]])
             dispinfo.offsets[row] = " ".join([f"{o.x} {o.y} {o.z}" for o in self.offsets[i]])
-        dispinfo.allowed_verts = parser.Namespace(**{"10": " ".join(["-1"] * 10)})  # never changes, used for ???
+        dispinfo.allowed_verts = common.Namespace(**{"10": " ".join(["-1"] * 10)})  # never changes, used for ???
         return dispinfo
 
     def change_power(self, new_power):
@@ -220,7 +220,7 @@ class Face:
         return face
 
     @staticmethod
-    def from_namespace(side: parser.Namespace) -> Face:
+    def from_namespace(side: common.Namespace) -> Face:
         face = Face()
         face.id = int(side.id)
         A, B, C = triangle_of(side.plane)
@@ -238,8 +238,8 @@ class Face:
         # Brush.from_namespace calculates polygons automatically
         return face
 
-    def as_namespace(self) -> parser.Namespace:
-        side = parser.Namespace()
+    def as_namespace(self) -> common.Namespace:
+        side = common.Namespace()
         side.id = str(self.id)
         # # ON-GRID PLANE: [expressing face as a ratio 1:1:0 @ (0, 0, 64)]
         # normal, distance = self.plane

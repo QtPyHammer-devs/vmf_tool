@@ -1,7 +1,10 @@
 """A library for interpreting & editing .vmf files"""
 
-__all__ = ["solid", "parser", "Vmf"]
+__all__ = ["solid", "parse", "vmf", "Vmf"]
 
 from . import solid
-from . import parser
-from .vmf import Vmf
+from . import parse
+from . import vmf
+
+
+Vmf = vmf.Vmf
