@@ -32,7 +32,6 @@ def as_namespace(vmf_text: str) -> common.Namespace:
             namespace.update([child_tier[(s, e)] for s, e in child_tier if start < s < e <= end])
             # TODO: remove children from the pool when their parents collect them
             current_tier[(start, end)] = (name, namespace)
-            # TODO: out_namespace[block.group("name")] = as_namespace(block.contents)
             # replace self with whitespace, so parents may be parsed
             vmf_text[start:end] = "".join([(" "if c != "\n" else "\n") for c in vmf_text[start:end]])
         # TODO: ensure no child is left behind
@@ -50,10 +49,10 @@ def as_vmf(namespace: common.Namespace, depth: int = 0) -> str:
             continue  # ignore line numbers
         # BRANCH A: Key-Value Pair
         elif isinstance(value, str):
-            out.append(f"""{indent}"{key}" "{value}"\n""")
+            out.append(f'{indent}"{key}" "{value}"\n')
         # BRANCH B-1: Singular Namespace
         elif isinstance(value, (dict, common.Namespace)):
-            out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+            out.append(f"{indent}{key}\n{indent}" + "{\n")
             out.append(value.as_string(depth + 1))
         # BRANCH B-2: Plural Namespaces (maybe)
         elif isinstance(value, list):
@@ -61,11 +60,11 @@ def as_vmf(namespace: common.Namespace, depth: int = 0) -> str:
                 # BRANCH C: Non-plural, duplicate key
                 if isinstance(child, str):
                     # e.g. brush entity "solid" type key-value pair + solid Namespace(s)
-                    out.append(f"""{indent}"{key}" "{child}"\n""")
+                    out.append(f'{indent}"{key}" "{child}"\n')
                 elif isinstance(child, (dict, common.Namespace)):
                     # BRANCH D: Confirmed Plural: Recurse
                     if len([k for k in child if k != "_line"]) > 0:  # ignoring line numbers
-                        out.append(f"""{indent}{key}\n{indent}""" + "{\n")
+                        out.append(f"{indent}{key}\n{indent}" + "{\n")
                         out.append(child.as_string(depth + 1))
         else:
             # all elements must be strings before converting!
