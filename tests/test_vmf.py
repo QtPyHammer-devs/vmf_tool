@@ -9,7 +9,7 @@ def test_load_from_file():
     # do empty .vmfs raise errors?
     blank = vmf_tool.Vmf.from_file("tests/mapsrc/blank.vmf")
     assert len(blank.import_errors) == 0
-    # TODO: test parser correctly handles:
+    # TODO: test parse.vmf.as_namespace correctly handles:
     # only one brush
     new_brush = vmf_tool.solid.Brush.from_bounds((-64, -64, -64), (64, 64, 64))
     new_brush.id = 1
@@ -68,7 +68,7 @@ def test_connections():  # ISSUE #13  (Unwanted removal of duplicate keys...)
 def test_cleanup_namespace():
     vmf = vmf_tool.Vmf("")
     with open("tests/mapsrc/test_hidden_objects.vmf") as file:
-        vmf._vmf = vmf_tool.parser.parse(file)
+        vmf._vmf = vmf_tool.parse.vmf.as_namespace(file.read())
     vmf.cleanup_namespace()
     assert isinstance(vmf._vmf.entity, list)
     assert isinstance(vmf._vmf.hidden, list)

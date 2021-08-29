@@ -29,8 +29,8 @@ class Vmf:
         self.filename = filename
         # create base .vmf
         worldspawn = common.Namespace(id="1", mapversion="0", classname="worldspawn", solid=[],
-                                            detailmaterial=self.detail_material, detailvbsp=self.detail_vbsp,
-                                            maxpropscreenwidth="-1", skyname=self.skybox)
+                                      detailmaterial=self.detail_material, detailvbsp=self.detail_vbsp,
+                                      maxpropscreenwidth="-1", skyname=self.skybox)
         self._vmf = common.Namespace(world=worldspawn, entity=[])
         # clear all dicts
         self.brush_entities = dict()
@@ -165,4 +165,4 @@ class Vmf:
             old_filename, ext = os.path.splitext(filename)
             shutil.copy(filename, f"{old_filename}.vmx")
         with open(filename, "w") as file:
-            file.write(self._vmf.as_string())
+            file.write(parse_vmf.as_vmf(self._vmf))
