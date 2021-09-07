@@ -1,3 +1,5 @@
+"""Singular: a key in a namespace, alone in it's tier
+Plural: a duplicate key which shares a tier with an identically named entry"""
 from __future__ import annotations
 
 import re
@@ -11,6 +13,9 @@ class Namespace:
     """Maps objects like a dictionary, all keys are strings.
     Values can be accessed as class attributes.
     If a key is not a valid attribute name, if can be used like a dictionary key."""
+    # Namespace(List[Union[Namespace, Any]], Namespace, Any)
+    # NOTE: a list inside a namespace is assumed to be a plural / duplicate key!
+
     def __init__(self, *args: List[Tuple[str, Any]], **presets: Mapping[str, Any]):
         # args = Namespace([("key", value), ("key", "value2"), ("key2", value)])
         # kwargs = Namespace(key=value, key2=value2)

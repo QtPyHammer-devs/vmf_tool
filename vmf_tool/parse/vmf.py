@@ -13,6 +13,7 @@ pattern_all_whitespace = re.compile(r"^\s*$")
 # NOTE: ignoring comments, the last parser caught those
 
 
+# TODO: test deeply and fix
 def as_namespace(vmf_text: str) -> common.Namespace:
     """.vmf text -> Namespace"""
     # NOTE: recurses through nested named_objects backwards
