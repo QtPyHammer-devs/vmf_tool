@@ -1,0 +1,79 @@
+# https://blenderartists.org/t/quake-map-exporter-for-blender3d/350073/17
+Zenitor - Sep 2006:
+Quake3 specific:
+
+here is an example of a simple mesh patch(in .map format)
+The equivalent of a blender plane subdivided 1 time, ie 9 verts/4 faces,
+
+// entity 0
+{
+“classname” “worldspawn”
+// brush 0
+{
+patchDef2
+{
+NULL
+( 3 3 0 0 0 )
+(
+( ( 32 0 0 0 0 ) ( 32 0 32 0 -1 ) ( 32 0 64 0 -2 ) )
+( ( 32 32 0 1 0 ) ( 32 32 32 1 -1 ) ( 32 32 64 1 -2 ) )
+( ( 32 64 0 2 0 ) ( 32 64 32 2 -1 ) ( 32 64 64 2 -2 ) )
+)
+}
+}
+}
+
+NULL
+( 3 3 0 0 0 ) 3x3 mesh, last 3 digits are mesh grid coordinates, not world related
+( ( 32 0 0 0 0 ) world coordinates xyz, last 2 are mesh grid coordinates in relation to origin, which appears to be left bottom corner,
+( ( 32 0 0 0 0 ) ( 32 0 32 0 -1 ) ( 32 0 64 0 -2 ) ) column 1 bottom to top (then rows left to right)
+( ( 32 32 0 1 0 ) ( 32 32 32 1 -1 ) ( 32 32 64 1 -2 ) ) column 2 bottom to top
+( ( 32 64 0 2 0 ) ( 32 64 32 2 -1 ) ( 32 64 64 2 -2 ) ) column 3 bottom to top
+looks like it lays out the mesh using the last 2 digits in each bracket and uses the first 3 digits as world coordinates for those verts
+A 5x5 mesh would be
+
+// entity 0
+{
+“classname” “worldspawn”
+// brush 0
+{
+patchDef2
+{
+NULL
+( 5 5 0 0 0 )
+(
+( ( 0 0 36 0 0 ) ( 0 16 36 0 -0.5 ) ( 0 32 36 0 -1 ) ( 0 48 36 0 -1.5 ) ( 0 64 36 0 -2 ) )
+( ( 16 0 36 0.5 0 ) ( 16 16 36 0.5 -0.5 ) ( 16 32 36 0.5 -1 ) ( 16 48 36 0.5 -1.5 ) ( 16 64 36 0.5 -2 ) )
+( ( 32 0 36 1 0 ) ( 32 16 36 1 -0.5 ) ( 32 32 36 1 -1 ) ( 32 48 36 1 -1.5 ) ( 32 64 36 1 -2 ) )
+( ( 48 0 36 1.5 0 ) ( 48 16 36 1.5 -0.5 ) ( 48 32 36 1.5 -1 ) ( 48 48 36 1.5 -1.5 ) ( 48 64 36 1.5 -2 ) )
+( ( 64 0 36 2 0 ) ( 64 16 36 2 -0.5 ) ( 64 32 36 2 -1 ) ( 64 48 36 2 -1.5 ) ( 64 64 36 2 -2 ) )
+)
+}
+}
+}
+This is specific to quake3, if it is possible to add the ability to export blender planes to the above definition it would be very handy, allowing the creation of complex maps entirely within blender. patchDef2 allows curves/cylinders all mesh shapes
+ie a cylinder 3 verts high with 8 columns of verts(the 9th having the same coordinates as the first)
+
+// entity 0
+{
+“classname” “worldspawn”
+// brush 0
+{
+patchDef2
+{
+NULL
+( 9 3 0 0 0 )
+(
+( ( -128 -96 0 0 0 ) ( -128 -96 32 0 -1 ) ( -128 -96 64 0 -2 ) )
+( ( -128 -128 0 1 0 ) ( -128 -128 32 1 -1 ) ( -128 -128 64 1 -2 ) )
+( ( -96 -128 0 2 0 ) ( -96 -128 32 2 -1 ) ( -96 -128 64 2 -2 ) )
+( ( -64 -128 0 3 0 ) ( -64 -128 32 3 -1 ) ( -64 -128 64 3 -2 ) )
+( ( -64 -96 0 4 0 ) ( -64 -96 32 4 -1 ) ( -64 -96 64 4 -2 ) )
+( ( -64 -64 0 5 0 ) ( -64 -64 32 5 -1 ) ( -64 -64 64 5 -2 ) )
+( ( -96 -64 0 6 0 ) ( -96 -64 32 6 -1 ) ( -96 -64 64 6 -2 ) )
+( ( -128 -64 0 7 0 ) ( -128 -64 32 7 -1 ) ( -128 -64 64 7 -2 ) )
+( ( -128 -96 0 8 0 ) ( -128 -96 32 8 -1 ) ( -128 -96 64 8 -2 ) )
+)
+}
+}
+}
