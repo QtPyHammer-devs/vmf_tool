@@ -3,6 +3,8 @@ import os
 import vmf_tool
 
 
+# TODO: ensure extracted namespaces have the correct structure
+
 def test_load_from_file():
     test2 = vmf_tool.Vmf.from_file("tests/mapsrc/test2.vmf")
     assert len(test2.import_errors) == 0
