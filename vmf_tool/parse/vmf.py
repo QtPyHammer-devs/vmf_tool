@@ -20,10 +20,12 @@ def as_namespace(vmf_text: str) -> common.Namespace:
     # TODO: record line numbers
     child_tier = dict()
     while pattern_all_whitespace.match(vmf_text) is None:
-        # TODO: invalid data will loop forever!  catch this and located the invalid text!
         current_tier = dict()
         # ^ {(match.start, match.end): (match.name, Namespace(match.contents))}
-        for match in pattern_named_object.finditer(vmf_text):
+        matches = list(pattern_named_object.finditer(vmf_text))
+        if len(matches) == 0:  # no matches to find, text is invalid?
+            raise RuntimeError("Parser broke, unsure where or why")
+        for match in matches:
             # TODO: ensure the closing curly brace was at the same indentation
             # -- need to ensure it wasn't in a key or value
             # -- also need to check for incomplete files
@@ -45,6 +47,7 @@ def as_namespace(vmf_text: str) -> common.Namespace:
         # childlessness =/= being a child
         current_tier.update(child_tier)  # if a child's parents cannot be found, it is assumed to be top-level
         child_tier = current_tier.copy()
+        # TODO: some children get left behind? creating an incomplete load?
     return common.Namespace(current_tier.values())
 
 
