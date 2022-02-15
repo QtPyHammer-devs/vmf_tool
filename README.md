@@ -3,6 +3,7 @@ A library for interpreting & editing .vmf files
 
 This library was created for editing Valve's .vmf (Valve Map Format)
 Parsing is provided by [ValveVmf](https://github.com/QtPyHammer-devs/ValveVMF)
+
 Created as part of [QtPyHammer](https://github.com/QtPyHammer-devs/QtPyHammer)
 
 ## Installation
