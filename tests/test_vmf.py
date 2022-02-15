@@ -42,6 +42,7 @@ def test_save_quality(filename):
             assert saved_face.plane == original_face.plane
     assert len(saved_vmf.entities) == len(original_vmf.entities)
     os.remove(saved_filename)  # delete saved file only if all tests succeed
+    # NOTE: use `diff -u -w src.vmf dest.vmf` on linux to compare files
     saved_filename_vmx = saved_filename[:-1] + "x"
     if os.path.exists(saved_filename_vmx):
         os.remove(saved_filename_vmx)
