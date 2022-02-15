@@ -34,7 +34,7 @@ def test_load_quality(filename):
             _source_plane = dict(face._source.properties)["plane"]
             _source_tri = [vmf_tool.vector.vec3(*P) for P in _source_plane]
             normal, distance = face.plane
-            assert all([vmf_tool.vector.dot(P, normal) == distance for P in _source_tri]), f"{brush.id=} {face.id=}"
+            assert all([vmf_tool.vector.dot(P, normal) == distance for P in _source_tri]), (brush.id, face.id)
 
 
 @pytest.mark.parametrize("filename", ("blank", "test", "test2"))
