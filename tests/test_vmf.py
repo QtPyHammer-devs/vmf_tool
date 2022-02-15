@@ -36,7 +36,8 @@ def test_save_quality(filename):
 
     # assert len(saved_vmf.import_errors) == len(original_vmf.import_errors)
     assert len(saved_vmf.brushes) == len(original_vmf.brushes)
-    for saved_brush, original_brush in zip(saved_vmf.brushes, original_vmf.brushes):
+    for saved_brush, original_brush in zip(saved_vmf.brushes.values(), original_vmf.brushes.values()):
+        assert saved_brush.id == original_brush.id
         for saved_face, original_face in zip(saved_brush, original_brush):
             # TODO: determine a margin of error for comparing brushes
             assert saved_face.plane == original_face.plane
