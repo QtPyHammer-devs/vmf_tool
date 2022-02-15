@@ -124,7 +124,12 @@ class Brush:
         editor_properties = dict(editor_node.properties)
         editor_properties["color"] = [(int(255 * x)) for x in self.colour]
         editor_node.properties = list(editor_properties.items())
-        self._source.nodes = [face.as_node() for face in self.faces]
+        self._source.nodes = list()
+        for face in self.faces:
+            try:
+                self._source.nodes.append(face.as_node())
+            except Exception as exc:
+                raise RuntimeError(f"Invalid Brush (solid id: {self.id}, side id: {face.id}); {exc}")
         self._source.nodes.append(editor_node)
         return self._source
 
@@ -297,6 +302,8 @@ class Face:
             side_properties = dict(self._source.properties)
         else:
             side_properties = dict()
+        if len(self.polygon) < 3:
+            raise RuntimeError(f"Invalid Face (side id: {self.id})")
         side_properties.update({"id": self.id,
                                 "plane": [tuple(P) for P in self.polygon[:3]],
                                 # NOTE: plane will drift over time due to floating point precision loss
