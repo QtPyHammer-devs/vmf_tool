@@ -55,7 +55,7 @@ class vec2:
         return vec2(-self.x, -self.y)
 
     def __repr__(self) -> str:
-        return str([self.x, self.y])
+        return f"{self.__class__.__name__}{(self.x, self.y)}"
 
     def __rmul__(self, other: float) -> vec2:
         return self.__mul__(other)
@@ -157,7 +157,7 @@ class vec3:
         return vec3(-self.x, -self.y, -self.z)
 
     def __repr__(self) -> str:
-        return str([self.x, self.y, self.z])
+        return f"{self.__class__.__name__}{(self.x, self.y, self.z)}"
 
     def __rmul__(self, other: Union[float, Iterable]) -> vec3:
         return self.__mul__(other)
