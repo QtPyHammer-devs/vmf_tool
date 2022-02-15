@@ -1,13 +1,15 @@
 # vmf_tool
 A library for interpreting & editing .vmf files
 
-This library was created for editing Valve's .vmf (Valve Map Format)  
-Created as part of [QtPyHammer](https://github.com/snake-biscuits/QtPyHammer)  
+This library was created for editing Valve's .vmf (Valve Map Format)
+Parsing is provided by [ValveVmf](https://github.com/QtPyHammer-devs/ValveVMF)
+Created as part of [QtPyHammer](https://github.com/QtPyHammer-devs/QtPyHammer)
 
 ## Installation
-To use the latest version, clone from git:
+To use the latest version, clone from git & install dependencies:
 ```
 $ git clone git@github.com:QtPyHammer-devs/vmf_tool.git
+$ python -m pip install -r requirements.txt
 ```
 
 Or to use the latest stable release, install via [pip](https://pypi.org/project/vmf-tool/) (Python 3.7+):
