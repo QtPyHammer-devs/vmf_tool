@@ -1,168 +1,221 @@
 from __future__ import annotations
-
+import itertools
 import os
 import shutil
-import traceback
-from typing import Any, Dict, List, Set
+from typing import Dict, List, Set
+
+import valvevmf
 
 from . import solid
-from .parse import common
-from .parse import vmf as parse_vmf
+
+
+default = {"skybox": "sky_tf2_04",  # Team Fortress 2 default sky
+           "detail_vbsp": "detail.vbsp",
+           "detail_material": "detail/detailsprites"}
+# TODO: default viewsettings
+
+Entity = valvevmf.VmfNode
+# NOTE: will likely use entity classes in future
+# -- should use valvefgd to collect / generate specific handler classes
+# -- e.g. type conversions for vectors etc.
 
 
 class Vmf:
-    _vmf: common.Namespace
+    _source: valvevmf.Vmf
     brush_entities: Dict[int, List[int]]
+    # ^ {Entity.id, [Brush.id]}
     brushes: Dict[int, solid.Brush]
-    detail_material: str = "detail/detailsprites"
-    detail_vbsp: str = "detail.vbsp"
-    entities: Dict[int, common.Namespace]
+    # ^ {id: Brush}
+    detail_material: str = default["detail_material"]
+    detail_vbsp: str = default["detail_vbsp"]
+    entities: Dict[int, Entity]
+    # ^ {id: Entity}
     filename: str
     hidden: Dict[str, Set[int]]
-    import_errors: Dict[str, str]
-    raw_brushes: Dict[int, common.Namespace]
-    skybox: str = "sky_tf2_04"
-    # TODO: setters to update self._vmf properties
-    # TODO: convenience method / property for modifying entities by name
+    # ^ {"collection": {object.id}}
+    skybox: str = default["skybox"]
+
+    # TODO: entity targetname lookups
+    # TODO: brush texture grouping
+    # TODO: auto visgroups
+    # TODO: dynamic grouping
+    # TODO: hidden/unhidden state
+    # TODO: confirm all ids are unique
 
     def __init__(self, filename: str):
         self.filename = filename
         # create base .vmf
-        worldspawn = common.Namespace(id="1", mapversion="0", classname="worldspawn", solid=[],
-                                      detailmaterial=self.detail_material, detailvbsp=self.detail_vbsp,
-                                      maxpropscreenwidth="-1", skyname=self.skybox)
-        self._vmf = common.Namespace(world=worldspawn, entity=[])
-        # clear all dicts
+        self._source = valvevmf.Vmf()
+        # copy of tests/mapsrc/blank.vmf
+        nodes = [valvevmf.VmfNode("versioninfo",
+                                  properties=[("editorversion", 400), ("editorbuild", 7803),
+                                              ("mapversion", 0), ("formatversion", 100),
+                                              ("prefab", False)]),
+                 # TODO: define viewsettings in global defaults
+                 valvevmf.VmfNode("viewsettings",
+                                  properties=[("bSnapToGrid", True), ("bShowGrid", True),
+                                              ("bShowLogicalGrid", False), ("nGridSpacing", 64),
+                                              ("bShow3DGrid", False)]),
+                 valvevmf.VmfNode("world",
+                                  properties=[("id", 1),
+                                              ("mapversion", 0),  # save revision?
+                                              ("classname", "worldspawn"),
+                                              ("detailmaterial", self.detail_material),
+                                              ("detailvbsp", self.detail_vbsp),
+                                              ("maxpropscreenwidth", -1),
+                                              ("skyname", self.skybox)]),
+                 valvevmf.VmfNode("cameras",
+                                  properties=[("activecamera", -1)]),
+                 valvevmf.VmfNode("cordon",
+                                  properties=[("mins", (-1024, -1024, -1024)),
+                                              ("maxs", (1024, 1024, 1024)),
+                                              ("active", 0)])]
+        self._source.nodes = nodes
+        # fresh dicts
         self.brush_entities = dict()
         self.brushes = dict()
         self.entities = dict()
         self.hidden = {"brushes": set(), "entities": set()}
         # ^ {"brushes": [brush.id], "entities": [entity.id]}
-        self.import_errors = dict()
-        self.raw_brushes = dict()
 
     def __repr__(self):
-        return f"<{self.__class__.__name__} {self.filename}>"
+        quick_stats = f"{len(self.brushes)} brushes & {len(self.entities)} entities"
+        return f"<{self.__class__.__name__} {self.filename} ({quick_stats})>"
 
-    @staticmethod
-    def from_file(filename) -> Vmf:
-        out = Vmf(filename)
-        # TODO: yield progress for a loading bar
-        with open(filename, "r") as vmf_file:
-            out._vmf = parse_vmf.as_namespace(vmf_file.read())
+    @classmethod
+    def from_file(cls: Vmf, filename: str) -> Vmf:
+        out = cls(filename)
+        # TODO: loading progress
+        out._source = valvevmf.Vmf(filename)
 
-        out.cleanup_namespace()
-        out.load_world_brushes()
-        out.load_entities()  # & brushes tied to entities
-        out.convert_solids()  # out.raw_brushes: common.Namespace -> out.brushes: brushes.Brush
+        out.reload_world_brushes()
+        out.reload_entities()  # also extends self.brushes
 
         # groups
         # user visgroups
 
-        out.skybox = out._vmf.world.skyname
-        out.detail_material = out._vmf.world.detailmaterial
-        out.detail_vbsp = out._vmf.world.detailvbsp
+        world_node = {n.name: n for n in out._source.nodes}["world"]
+        world_properties = dict(world_node.properties)
+        out.skybox = world_properties["skyname"]
+        out.detail_material = world_properties["detailmaterial"]
+        out.detail_vbsp = world_properties["detailvbsp"]
+        # TODO: ensure solid._id > max(ids_present_in_source)
         return out
 
-    def cleanup_namespace(self):
-        def list_if_not(unknown) -> List[Any]:
-            if not isinstance(unknown, list):
-                unknown = [unknown]
-            return unknown
-
-        # world brushes
-        self._vmf.world.solid = list_if_not(getattr(self._vmf.world, "solid", []))
-        # TODO: groups (self._vmf.world.group)
-        # hidden world brushes
-        self._vmf.world.hidden = list_if_not(getattr(self._vmf.world, "hidden", []))
-        # entities
-        self._vmf.entity = list_if_not(getattr(self._vmf, "entity", []))
-        # brush entities' brushes
-        for i, entity in enumerate(self._vmf.entity):
-            self._vmf.entity[i].solid = list_if_not(getattr(entity, "solid", []))
-            self._vmf.entity[i].hidden = list_if_not(getattr(entity, "hidden", []))
-        # hidden entities
-        self._vmf.hidden = list_if_not(getattr(self._vmf, "hidden", []))
-        # hidden brush entities' brushes
-        for i, namespace in enumerate(self._vmf.hidden):
-            self._vmf.hidden[i].entity.solid = list_if_not(getattr(namespace.entity, "solid", []))
-            self._vmf.hidden[i].entity.hidden = list_if_not(getattr(namespace.entity, "hidden", []))
-
-    def load_world_brushes(self):
-        """move world solids from namespace to self"""
-        self.raw_brushes = {int(b.id): b for b in getattr(self._vmf.world, "solid", list())}
-        hidden = getattr(self._vmf.world, "hidden", list())
-        for namespace in hidden:
-            self.raw_brushes[int(namespace.solid.id)] = namespace.solid
-            self.hidden["brushes"].add(int(namespace.solid.id))
-
-    def load_entities(self):
-        """move entities to self & collect solids from brush based entities"""
-        self.entities = {int(e.id): e for e in getattr(self._vmf, "entity", list())}
-        # ^ {entity.id: entity}
-        hidden = getattr(self._vmf, "hidden", list())
-        for namespace in hidden:
-            self.hidden["entities"].add(int(namespace.entity.id))
-            self.entities[int(namespace.entity.id)] = namespace.entity
-        self.brush_entities = dict()
-        # ^ {entity.id: [brush.id, brush.id, ...]}
-        for entity_id, entity in self.entities.items():
-            hidden = getattr(entity, "hidden", list())
-            for namespace in hidden:
-                self.hidden["brushes"].add(int(namespace.solid.id))
-                entity.add_attr("solid", namespace.solid)
-            if hasattr(entity, "solid"):
-                if any([isinstance(b, common.Namespace) for b in entity.solid]):
-                    entity_brushes = {b.id: b for b in entity.solid if isinstance(b, common.Namespace)}
-                    self.raw_brushes.update(entity_brushes)
-                    self.brush_entities[entity_id] = list(entity_brushes.keys())
-
-    def convert_solids(self):
-        """self.raw_brushes: common.Namespace -> self.brushes: brushes.Brush"""
-        self.import_errors = dict()
-        # ^ {"Error text": traceback}
+    def reload_world_brushes(self):
+        """regenerate self.brushes from self._source"""
+        self.hidden["brushes"] = set()
         self.brushes = dict()
-        # ^ {brush.id: brush}
-        for i, brush_id in enumerate(self.raw_brushes):
-            try:
-                brush = solid.Brush.from_namespace(self.raw_brushes[brush_id])
-            except Exception as exc:
-                error_text = f"Solid #{i} id: {brush_id} is invalid.\n{exc.__class__.__name__}: {exc}"
-                self.import_errors[error_text] = traceback.format_exc()
-            else:
-                self.brushes[brush_id] = brush
+        for node in {n.name: n for n in self._source.nodes}["world"].nodes:
+            is_hidden = False
+            if node.name == "hidden":
+                is_hidden = True
+                assert len(node.properties) == 0
+                assert len(node.nodes) == 1
+                node = node.nodes[0]  # grab the hidden node
+            if node.name == "solid":
+                brush_id = dict(node.properties)["id"]
+                if is_hidden:
+                    self.hidden["brushes"].add(brush_id)
+                assert brush_id not in self.brushes
+                self.brushes[brush_id] = solid.Brush.from_node(node)
 
-    def save_as(self, filename: str = ""):
+    def reload_entities(self):
+        """regenerate self.entities & self.brush_entities from self._source; also extends self.brushes"""
+        self.hidden["entities"] = set()
+        for brush_id in itertools.chain(*self.brush_entities.keys()):
+            self.hidden["brushes"].remove(brush_id)
+        self.brush_entities = dict()
+        # ^ {Entity.id: [Brush.id]}
+        self.entities = dict()
+        # ^ {Entity.id: Entity}
+        for node in self._source.nodes:
+            is_hidden = False
+            if node.name == "hidden":
+                is_hidden = True
+                assert len(node.properties) == 0
+                assert len(node.nodes) == 1
+                node = node.nodes[0]  # grab the hidden node
+            # NOTE: hidden nodes wrapping non-entities will be ignored
+            if node.name == "entity":
+                entity_id = dict(node.properties)["id"]
+                if is_hidden:
+                    self.hidden["entities"].add(entity_id)
+                assert entity_id not in self.entities
+                self.entities[entity_id] = node
+                # solid creation with some extra connections / hide state stuff
+                for child_node in node.nodes:
+                    child_is_hidden = False
+                    if child_node.name == "hidden":
+                        child_is_hidden = True
+                        assert len(child_node.properties) == 0
+                        assert len(child_node.nodes) == 1
+                        child_node = child_node.nodes[0]  # grab the hidden node
+                    if child_node.name == "solid":
+                        brush_id = dict(child_node.properties)["id"]
+                        if entity_id not in self.brush_entities:
+                            self.brush_entities[entity_id] = set()
+                        self.brush_entities[entity_id].add(brush_id)
+                        if is_hidden or child_is_hidden:
+                            self.hidden["brushes"].add(brush_id)
+                        assert brush_id not in self.brushes
+                        self.brushes[brush_id] = solid.Brush.from_node(child_node)
+
+    def entity_id_of_brush(self, brush_id: int) -> int | None:
+        """None if world brush"""
+        brush_entity = {b_id: e_id for e_id, b_ids in self.brush_entitites.items() for b_id in b_ids}
+        # ^ {Brush.id: Entity.id}
+        return brush_entity.get(brush_id, None)
+
+    def save(self):
+        return self.save_as(self.filename)
+
+    def save_as(self, filename: str):
         """saves to self.filename if no filename is given"""
-        # TODO: store hidden state of solids & entities
-        # TODO: increment mapversion
-
-        def is_world_brush(brush):
-            return not any([brush.id in b_ids for b_ids in self.brush_entities.values()])
-
-        self._vmf.world.solid = []
-        self._vmf.world.hidden = []
-        for brush in filter(is_world_brush, self.brushes.values()):
+        # update self._source
+        _source_nodes = {n.name: n for n in self._source.nodes}
+        # entities first
+        entity_nodes = dict()
+        # ^ {Entity.id: Entity.as_node()}
+        for entity_id, entity in self.entities.items():
+            entity_node = entity
+            if entity_id in self.hidden:
+                entity_node = valvevmf.VmfNode("hidden", nodes=[entity_node])
+            entity_nodes[entity_id] = entity_node
+        # brushes second
+        ignored_world_nodes = [n for n in _source_nodes["world"].nodes if n.name not in ("solid", "hidden")]
+        _source_nodes["world"].nodes = list()
+        # collect brushes
+        brush_entity = {b_id: e_id for e_id, b_ids in self.brush_entities.items() for b_id in b_ids}
+        # ^ {Brush.id: Entity.id}
+        for brush in self.brushes.values():
+            solid_node = brush.as_node()
             if brush.id in self.hidden["brushes"]:
-                self._vmf.world.hidden.append(brush.as_namespace)
-            else:
-                self._vmf.world.solid.append(brush.as_namespace())
-
-        # self._vmf.world.hidden = []
-        # for entity in self.entities.values():
-        #    if entity.id in self.brush_entities:
-        #        entity.brushes = [self.brushes[b.id] for b in self.brush_entities[entity.id]]
-        #        # TODO: hide brushes within entity
-        #        # UNTESTED: what do partially hidden brush_entities look like?
-        #    # TODO: wrap entity in a "hidden" Namespace if needed
-        #    self._vmf.entity.append(entity.as_namespace())
-
+                solid_node = valvevmf.VmfNode("hidden", nodes=[solid_node])
+            if brush.id in brush_entity:  # attach to entity
+                # NOTE: hidden brushes which are part of a hidden entity may not be counted
+                entity_nodes[brush_entity[brush.id]].nodes.append(solid_node)
+            else:  # world brush
+                _source_nodes["world"].nodes.append(solid_node)
+        _source_nodes["world"].nodes.extend(ignored_world_nodes)
+        self._source = valvevmf.Vmf()
+        # TODO: check with Hammer to see if scrambling the order of nodes affects anything
+        if sum(map(len, self.hidden.values())) > 0:
+            # NOTE: if all brushes of an entity are hidden the ent is wrapped in a `hidden` node
+            # -- however, the individual brushes within that entity are not
+            # TODO: confirm all variations on this and if we can get lazy with it
+            quickhide_count = len(self.hidden["brushes"]) + len(self.hidden["entities"])
+            _source_nodes["quickhide"] = valvevmf.VmfNode("quickhide", properties=[("count", quickhide_count)])
+        elif "quickhide" in _source_nodes:
+            _source_nodes.pop("quickhide")
+        self._source.nodes = list(_source_nodes.values())
+        self._source.nodes.extend(entity_nodes.values())
         # TODO: set self._vmf.world.quickhide.count
-
-        if filename == "":  # default
-            filename = self.filename
+        # TODO: save changes to visgroup state (no clue how that works)
+        # do the save
+        # TODO: increment mapversion
         if os.path.exists(filename):
             old_filename, ext = os.path.splitext(filename)
             shutil.copy(filename, f"{old_filename}.vmx")
         with open(filename, "w") as file:
-            file.write(parse_vmf.as_vmf(self._vmf))
+            file.write(self._source.vmf_str())

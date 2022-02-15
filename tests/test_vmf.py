@@ -1,35 +1,40 @@
 import os
 
+import pytest
+
 import vmf_tool
 
 
-# TODO: ensure extracted namespaces have the correct structure
+# TODO: test handling of malformed .vmfs
+# -- 0 bytes files, incomplete files, invalid keyvalues etc.
 
 def test_load_from_file():
-    test2 = vmf_tool.Vmf.from_file("tests/mapsrc/test2.vmf")
-    assert len(test2.import_errors) == 0
-    # do empty .vmfs raise errors?
-    blank = vmf_tool.Vmf.from_file("tests/mapsrc/blank.vmf")
-    assert len(blank.import_errors) == 0
-    # TODO: test parse.vmf.as_namespace correctly handles:
-    # only one brush
-    new_brush = vmf_tool.solid.Brush.from_bounds((-64, -64, -64), (64, 64, 64))
-    new_brush.id = 1
-    blank.brushes[1] = new_brush
-    # TODO: save, reload, assert
-    # only one entity
-    # only one brush inside an entity
+    """Will it crash?"""
+    # TODO: give a (X / max) success rate in final result
+    # TODO: re-implement import_errors to allow for partial loads
+    # -- scrapping invalid brushes etc. like regular hammer
+    blank = vmf_tool.Vmf.from_file("tests/mapsrc/blank.vmf")  # nothing
+    # assert len(blank.import_errors) == 0
+    test = vmf_tool.Vmf.from_file("tests/mapsrc/test.vmf")  # nodraw cube
+    # assert len(test.import_errors) == 0
+    test2 = vmf_tool.Vmf.from_file("tests/mapsrc/test2.vmf")  # various objects
+    # assert len(test2.import_errors) == 0
+    # NOTE: test save hidden
+    del blank, test, test2
 
 
-def test_save_quality():
-    original_filename = "tests/mapsrc/test2.vmf"
-    saved_filename = "tests/mapsrc/save_test.vmf"
+@pytest.mark.parametrize("filename", ("blank", "test", "test2"))
+def test_save_quality(filename):
+    map_dir = "tests/mapsrc"
+    original_filename = os.path.join(map_dir, f"{filename}.vmf")
+    saved_filename = os.path.join(map_dir, f"{filename}_resaved.vmf")
     vmf_tool.Vmf.from_file(original_filename).save_as(saved_filename)
-
+    # recollect both .vmfs post-save
+    # TODO: confirm original_vmf was not altered
     original_vmf = vmf_tool.Vmf.from_file(original_filename)
     saved_vmf = vmf_tool.Vmf.from_file(saved_filename)
 
-    assert len(saved_vmf.import_errors) == len(original_vmf.import_errors)
+    # assert len(saved_vmf.import_errors) == len(original_vmf.import_errors)
     assert len(saved_vmf.brushes) == len(original_vmf.brushes)
     for saved_brush, original_brush in zip(saved_vmf.brushes, original_vmf.brushes):
         for saved_face, original_face in zip(saved_brush, original_brush):
@@ -42,40 +47,16 @@ def test_save_quality():
         os.remove(saved_filename_vmx)
 
 
-def test_blank_save():
-    original_filename = "tests/mapsrc/blank.vmf"
-    saved_filename = "tests/mapsrc/blank_save_test.vmf"
-    vmf_tool.Vmf.from_file(original_filename).save_as(saved_filename)
-
-    original_vmf = vmf_tool.Vmf.from_file(original_filename)
-    saved_vmf = vmf_tool.Vmf.from_file(saved_filename)
-
-    assert len(saved_vmf.import_errors) == len(original_vmf.import_errors)
-    assert len(saved_vmf.brushes) == len(original_vmf.brushes)
-    assert len(saved_vmf.entities) == len(original_vmf.entities)
-    os.remove(saved_filename)  # delete saved file only if all tests succeed
-    saved_filename_vmx = saved_filename[:-1] + "x"
-    if os.path.exists(saved_filename_vmx):
-        os.remove(saved_filename_vmx)
+def test_generate_blank():
+    vmf_tool.Vmf("tests/mapsrc/untitled.vmf").save()
+    if os.path.exists("tests/mapsrc/untitled.vmx"):
+        os.remove("tests/mapsrc/untitled.vmx")
 
 
 def test_connections():  # ISSUE #13  (Unwanted removal of duplicate keys...)
     test2_vmf = vmf_tool.Vmf.from_file("tests/mapsrc/test2.vmf")
-    cp1 = [e for e in test2_vmf.entities.values() if getattr(e, "targetname", None) == "cp1"][0]
+    cp1 = [e for e in test2_vmf.entities.values() if dict(e.properties).get("targetname", None) == "cp1"][0]
     # ^ need a more convenient way of accessing entities by name
-    assert len(cp1.connections.OnCapTeam1) == 2
-    assert len(cp1.connections.OnCapTeam2) == 2
-
-
-def test_cleanup_namespace():
-    vmf = vmf_tool.Vmf("")
-    with open("tests/mapsrc/test_hidden_objects.vmf") as file:
-        vmf._vmf = vmf_tool.parse.vmf.as_namespace(file.read())
-    vmf.cleanup_namespace()
-    assert isinstance(vmf._vmf.entity, list)
-    assert isinstance(vmf._vmf.hidden, list)
-    assert isinstance(vmf._vmf.world.hidden, list)
-    assert isinstance(vmf._vmf.world.solid, list)
-    for namespace in vmf._vmf.hidden:
-        assert isinstance(namespace.entity.hidden, list)
-        assert isinstance(namespace.entity.solid, list)
+    cp1_connections = {n.name: n for n in cp1.nodes}["connections"].properties
+    assert len([k for k, v in cp1_connections if k == "OnCapTeam1"]) == 2
+    assert len([k for k, v in cp1_connections if k == "OnCapTeam2"]) == 2

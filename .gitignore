@@ -126,3 +126,6 @@ dmypy.json
 
 # Visual Studio Code
 .vscode/
+
+# vim temp files
+*.swp
