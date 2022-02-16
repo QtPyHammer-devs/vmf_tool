@@ -6,6 +6,7 @@ from typing import Dict, List, Set
 
 import valvevmf
 
+# TODO: from . import entity
 from . import solid
 
 
@@ -15,9 +16,6 @@ default = {"skybox": "sky_tf2_04",  # Team Fortress 2 default sky
 # TODO: default viewsettings
 
 Entity = valvevmf.VmfNode
-# NOTE: will likely use entity classes in future
-# -- should use valvefgd to collect / generate specific handler classes
-# -- e.g. type conversions for vectors etc.
 
 
 class Vmf:
