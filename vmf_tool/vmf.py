@@ -41,6 +41,7 @@ class Vmf:
     # TODO: confirm all ids are unique
 
     def __init__(self, filename: str):
+        """creates a new .vmf; does not open an exising file"""
         self.filename = filename
         # create base .vmf
         self._source = valvevmf.Vmf()
@@ -85,19 +86,16 @@ class Vmf:
         out = cls(filename)
         # TODO: loading progress
         out._source = valvevmf.Vmf(filename)
-
         out.reload_world_brushes()
-        out.reload_entities()  # also extends self.brushes
-
-        # groups
-        # user visgroups
-
+        out.reload_entities()  # extends self.brushes
+        # TODO: index groups
+        # TODO: index visgroups (user & auto)
         world_node = {n.name: n for n in out._source.nodes}["world"]
         world_properties = dict(world_node.properties)
         out.skybox = world_properties["skyname"]
         out.detail_material = world_properties["detailmaterial"]
         out.detail_vbsp = world_properties["detailvbsp"]
-        # TODO: ensure solid._id > max(ids_present_in_source)
+        # TODO: warn of any invalid solids & other errors (displacement in brush entity, overlapping ids etc.)
         return out
 
     def reload_world_brushes(self):

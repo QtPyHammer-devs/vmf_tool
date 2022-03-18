@@ -108,7 +108,7 @@ class Brush:
         return brush
 
     def as_node(self) -> valvevmf.VmfNode:
-        # TODO: editor node autovisgroup state
+        # TODO: update autovisgroup hidden state in editor node
         if not hasattr(self, "_source"):  # generate base
             editor_node = valvevmf.VmfNode("editor",
                                            properties=[("color", None)])
