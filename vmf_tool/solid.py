@@ -102,9 +102,8 @@ class Brush:
                     continue  # skip yourself
                 ngon, offcut = clip(ngon, other_f.plane).values()
             brush.faces[i].polygon = ngon
-            if hasattr(f, "displacement") and len(ngon) != 4:
-                raise RuntimeError("face id {f.id}'s displacement is invalid (face has {len(ngon)} sides)")
-                # solid is probably invalid
+            if hasattr(f, "displacement") and len(ngon) != 4:  # solid is probably invalid
+                raise RuntimeError(f"face id {f.id}'s displacement is invalid (face has {len(ngon)} sides)")
         return brush
 
     def as_node(self) -> valvevmf.VmfNode:
@@ -335,8 +334,8 @@ class TextureVector:
 
     def __init__(self, x=0, y=0, z=0, offset=0, scale=default["texture_scale"]):
         self.vector = vector.vec3(x, y, z)
-        self.offset = offset
-        self.scale = scale
+        self.offset = float(offset)
+        self.scale = float(scale)
 
     # u or v at world space position
     def linear_pos(self, position: vector.vec3) -> float:
