@@ -347,17 +347,21 @@ class TextureVector:
 
 
 def clip(poly: List[vector.vec3], plane: Plane) -> Dict[str, List[vector.vec3]]:
+    float_forgiveness = 0.00625  # floating point accuracy really sucks
     normal, distance = plane
     split_verts = {"back": [], "front": []}  # allows for 3 cutting modes
     for i, A in enumerate(poly):
         B = poly[(i + 1) % len(poly)]
         A_distance = vector.dot(normal, A) - distance
         B_distance = vector.dot(normal, B) - distance
-        A_behind = round(A_distance, 6) < 0
-        B_behind = round(B_distance, 6) < 0
-        if A_behind:
+        A_behind = A_distance < float_forgiveness
+        B_behind = B_distance < float_forgiveness
+        if A_behind is True and B_behind is True:  # plane slices very close to the existing vertex
+            split_verts["front"].append(A)
             split_verts["back"].append(A)
-        else:  # A is in front of the clipping plane
+        elif A_behind:
+            split_verts["back"].append(A)
+        else:  # B_behind
             split_verts["front"].append(A)
         # does the edge AB intersect the clipping plane?
         if (A_behind and not B_behind) or (B_behind and not A_behind):
