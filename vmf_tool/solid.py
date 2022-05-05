@@ -100,7 +100,7 @@ class Brush:
             for j, other_f in enumerate(brush.faces):
                 if j == i:
                     continue  # skip yourself
-                ngon, offcut = clip(ngon, other_f.plane).values()
+                ngon, offcut = clip_poly(ngon, other_f.plane).values()
             brush.faces[i].polygon = ngon
             if hasattr(f, "displacement") and len(ngon) != 4:  # solid is probably invalid
                 raise RuntimeError(f"face id {f.id}'s displacement is invalid (face has {len(ngon)} sides)")
@@ -136,7 +136,7 @@ class Brush:
         return any([hasattr(f, "displacement") for f in self.faces])
 
     # Operations
-    # TODO: clip(self, plane): -> (Brush, Brush), new faces on plane use default["material"]
+    # TODO: clip_poly(self, plane): -> (Brush, Brush), new faces on plane use default["material"]
 
     def translate(self, offset: vector.vec3, texture_lock=False, displacement_lock=False):
         # apply offset (arrow keys nudge) to plane & polygon of each face
@@ -236,6 +236,7 @@ class Displacement:
 
 Plane = (vector.vec3, float)
 # ^ (normal, distance)
+Polygon = List[vector.vec3]
 
 
 class Face:
@@ -246,7 +247,7 @@ class Face:
     lightmap_scale: int
     material: str = default["material"]
     plane: List[Plane]
-    polygon: List[vector.vec3] = list()
+    polygon: Polygon = list()
     # NOTE: face vertices are dependant on the intersection of faces in the parent brush
     # -- however, a face can exist independantly of a brush, for convenience
     rotation: float
@@ -255,7 +256,7 @@ class Face:
     vaxis: TextureVector
 
     @classmethod
-    def from_polygon(cls: Face, polygon: List[vector.vec3], material: str = default["material"]) -> Face:
+    def from_polygon(cls, polygon: Polygon, material: str = default["material"]) -> Face:
         face = cls()
         if len(polygon) < 3:
             raise RuntimeError(f"Cannot generate a {cls.__name__} from {len(polygon)} sided polygon!")
@@ -346,10 +347,13 @@ class TextureVector:
     # TODO: reproject from selection (alt+rmb texture wrapping)
 
 
-def clip(poly: List[vector.vec3], plane: Plane) -> Dict[str, List[vector.vec3]]:
+# TODO: needs a bunch of tests for edge cases (tight bevels deleting entire polygons etc.)
+def clip_poly(poly: Polygon, plane: Plane) -> (Polygon, Polygon):  # front, back
     float_forgiveness = 0.00625  # floating point accuracy really sucks
     normal, distance = plane
-    split_verts = {"back": [], "front": []}  # allows for 3 cutting modes
+    # NOTE: calculate both halves of the cut at once, let the caller decide which they keep
+    FRONT, BACK = 0, 1
+    split_verts = [[], []]
     for i, A in enumerate(poly):
         B = poly[(i + 1) % len(poly)]
         A_distance = vector.dot(normal, A) - distance
@@ -357,22 +361,44 @@ def clip(poly: List[vector.vec3], plane: Plane) -> Dict[str, List[vector.vec3]]:
         A_behind = A_distance < float_forgiveness
         B_behind = B_distance < float_forgiveness
         if A_behind is True and B_behind is True:  # plane slices very close to the existing vertex
-            split_verts["front"].append(A)
-            split_verts["back"].append(A)
+            split_verts[FRONT].append(A)
+            split_verts[BACK].append(A)
         elif A_behind:
-            split_verts["back"].append(A)
+            split_verts[BACK].append(A)
         else:  # B_behind
-            split_verts["front"].append(A)
+            split_verts[FRONT].append(A)
         # does the edge AB intersect the clipping plane?
         if (A_behind and not B_behind) or (B_behind and not A_behind):
             t = A_distance / (A_distance - B_distance)
             cut_point = vector.lerp(A, B, t)
             cut_point = [round(a, 2) for a in cut_point]
             # .vmf floating-point accuracy sucks
-            split_verts["back"].append(cut_point)
-            split_verts["front"].append(cut_point)
+            split_verts[BACK].append(cut_point)
+            split_verts[FRONT].append(cut_point)
             # ^ won't one of these points be added twice?
     return split_verts
+
+
+def clip_brush(brush: Brush, plane: Plane) -> (Brush, Brush):  # front, back
+    # TODO: if the whole brush is on one side, return either (None, brush) or (brush, None)
+    # -- when and how this happens could result in microbrushes, also be wary of slicing invalid solids
+    raise NotImplementedError()
+    FRONT, BACK = 0, 1
+    out_brushes = (Brush(), Brush())
+    for face in brush:
+        for out_brush, poly in zip(out_brushes, clip_poly(face.polygon, plane)):
+            face.poly = poly  # TODO: ensure face is not a shallow copy
+            out_brush.faces.append(face)
+    # cap the hole you just made
+    # TODO: generate base poly from plane
+    # TODO: slice the cutting plane into a new poly
+    cut_poly = ...
+    cut_face = Face.from_plane(cut_poly)
+    # TODO: get cut face material
+    # TODO: get cut face texture projection
+    out_brushes[FRONT].append(cut_face)
+    out_brushes[BACK].append(-cut_face)  # TODO: invert face (-ve plane + )
+    return out_brushes
 
 
 def plane_of(A: vector.vec3, B: vector.vec3, C: vector.vec3) -> (vector.vec3, float):
