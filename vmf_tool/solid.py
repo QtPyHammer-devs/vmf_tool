@@ -1,31 +1,35 @@
 from __future__ import annotations
 import itertools
-from typing import Dict, List
+from typing import List, Tuple, Union
 
 import valvevmf
 
 from . import vector
 
 
-# NOTE: it'd be cool to have type conversion for Quake-based .map files (need parser)
-# -- same with GoldSrc .rmf files (also need parser)
-
 _id = 0  # for globally incrementing solid, side & entity ids
 # TODO: verify all _ids are unique
-# NOTE: users should be allowed to override defaults with their own
-# -- expected use is to grab settings from Hammer's GameInfo.txt or QtPyHammer / Hammer++'s .ini files
-default = {"allowed_verts": [-1] * 10,
-           "color": (1.0, 0, 1.0),
-           "lightmap_scale": 16,
-           "material": "TOOLS/TOOLSNODRAW",
-           "texture_scale": 0.25}
+# TODO: grab defaults from gameinfo.txt / config .ini
+default = {
+    "allowed_verts": [-1] * 10,
+    "color": (1.0, 0, 1.0),
+    "lightmap_scale": 16,
+    "material": "TOOLS/TOOLSNODRAW",
+    "texture_scale": 0.25}
 
 
 class Brush:
-    _source: valvevmf.VmfNode | None  # only present if loaded from / saved to file
-    colour: (float, float, float) = default["color"]
-    faces: List[Face] = list()
-    id: int = 0
+    _source: Union[valvevmf.VmfNode, None]
+    colour: Tuple[float, float, float] = default["color"]
+    faces: List[Face]
+    id: int
+
+    def __init__(self):
+        self._source = None
+        self.faces = list()
+        self.colour = default["color"]
+        # NOTE: we aren't enforcing unique ids here!
+        self.id = 0
 
     def __iter__(self):
         """for face in brush:"""
@@ -35,37 +39,47 @@ class Brush:
         return f"<Solid id={self.id} with {len(self.faces)} sides>"
 
     @classmethod
-    def from_bounds(cls: Brush, mins: List[float], maxs: List[float], material: str = default["material"]) -> Brush:
+    def from_bounds(cls, mins, maxs, material=None) -> Brush:
         """Make a cube"""
         mins = vector.vec3(*mins)
         maxs = vector.vec3(*maxs)
         brush = cls()
-        global _id
-        _id += 1
-        brush.id = _id
-        # NOTE: we could do a directional palette... would just need a way to set it in UI...
-        # -- palette zoning would also be neat...
+
+        if material is None:
+            material = default["material"]
 
         def face(*points):
-            return Face.from_polygon([*map(lambda P: vector.vec3(*P), points)], material)
+            return Face.from_polygon([
+                    vector.vec3(*xyz)
+                    for xyz in points
+                ], material)
 
-        # NOTE: while it's tempting to generate these points with a loop, it's easier to debug like this
         z = maxs.z
-        pos_Z = face((mins.x, maxs.y, z), (maxs.x, maxs.y, z), (maxs.x, mins.y, z), (mins.x, mins.y, z))
+        pos_Z = face(
+            (mins.x, maxs.y, z), (maxs.x, maxs.y, z),
+            (maxs.x, mins.y, z), (mins.x, mins.y, z))
         z = mins.z
-        neg_Z = face((mins.x, mins.y, z), (mins.x, maxs.y, z), (maxs.x, maxs.y, z), (maxs.x, mins.y, z))
+        neg_Z = face(
+            (mins.x, mins.y, z), (mins.x, maxs.y, z),
+            (maxs.x, maxs.y, z), (maxs.x, mins.y, z))
         y = maxs.y
-        pos_Y = face((mins.x, y, maxs.z), (mins.x, y, mins.z), (maxs.x, y, mins.z), (maxs.x, y, maxs.z))
+        pos_Y = face(
+            (mins.x, y, maxs.z), (mins.x, y, mins.z),
+            (maxs.x, y, mins.z), (maxs.x, y, maxs.z))
         y = mins.y
-        neg_Y = face((mins.x, y, mins.z), (mins.x, y, maxs.z), (maxs.x, y, maxs.z), (maxs.x, y, mins.z))
+        neg_Y = face(
+            (mins.x, y, mins.z), (mins.x, y, maxs.z),
+            (maxs.x, y, maxs.z), (maxs.x, y, mins.z))
         x = maxs.x
-        pos_X = face((x, maxs.y, maxs.z), (x, maxs.y, mins.z), (x, mins.y, mins.z), (x, mins.y, maxs.z))
+        pos_X = face(
+            (x, maxs.y, maxs.z), (x, maxs.y, mins.z),
+            (x, mins.y, mins.z), (x, mins.y, maxs.z))
         x = mins.x
-        neg_X = face((x, mins.y, mins.z), (x, maxs.y, mins.z), (x, maxs.y, maxs.z), (x, mins.y, maxs.z))
+        neg_X = face(
+            (x, mins.y, mins.z), (x, maxs.y, mins.z),
+            (x, maxs.y, maxs.z), (x, mins.y, maxs.z))
         brush.faces = [pos_Z, neg_Z, pos_Y, neg_Y, pos_X, neg_X]
         return brush
-
-    # TODO: extrude from face
 
     @classmethod
     def from_node(cls: Brush, solid: valvevmf.VmfNode) -> Brush:
@@ -73,47 +87,60 @@ class Brush:
         brush = cls()
         brush._source = solid
         brush.id = dict(solid.properties)["id"]
-        # quick & dirty child-node collection
-        if not (all([n.name == "side" for n in solid.nodes[:-1]]) and solid.nodes[-1].name == "editor"):
-            raise RuntimeError("Invalid Solid; Unexpected / absent child node(s)")
-        brush.faces = list(map(Face.from_node, solid.nodes[:-1]))
-        brush.colour = tuple(x / 255 for x in dict(solid.nodes[-1].properties)["color"])
-        # faces to ngons
-        # TODO: detect & use Hammer++'s precision vertices
-        for i, f in enumerate(brush.faces):
-            normal, distance = f.plane
+
+        side_nodes = solid.nodes[:-1]
+        assert all([node.name == "side" for node in side_nodes])
+        brush.faces = [Face.from_node(node) for node in side_nodes]
+
+        # brush face plane (3 vertices) => polygon (3+ vertices)
+        # TODO: use Hammer++'s precision vertices, if present
+        # NOTE: this approach has big floating-point accuracy issues
+        # -- it would be better to start from an axis-aligned bounding box
+        # -- rather than average down the base tri and expand
+        for i, face in enumerate(brush.faces):
+            # make a big quad
+            normal, distance = face.plane
             if abs(normal.z) != 1:
                 non_parallel = vector.vec3(z=-1)
             else:
                 non_parallel = vector.vec3(y=-1)
-            local_y = (non_parallel * normal).normalise()
-            local_x = (local_y * normal).normalise()
-            center = sum(f.polygon, vector.vec3()) / 3
-            # ^ centered on string triangle, but rounding errors abound
-            # however, using vector.vec3 does mean math.fsum is utilitsed
-            # TODO: use globals to set this radius to 2x the maximum extents of the map
+            local_y = (non_parallel * normal).normalised()
+            local_x = (local_y * normal).normalised()
+            center = sum(face.polygon, vector.vec3()) / 3
             radius = 10 ** 4
             ngon = [center + ((-local_x + local_y) * radius),
                     center + ((local_x + local_y) * radius),
                     center + ((local_x + -local_y) * radius),
                     center + ((-local_x + -local_y) * radius)]
-            for j, other_f in enumerate(brush.faces):
+            # clip against all other faces
+            for j, other_face in enumerate(brush.faces):
                 if j == i:
                     continue  # skip yourself
-                ngon, offcut = clip_poly(ngon, other_f.plane).values()
+                offcut, ngon = clip_poly(ngon, other_face.plane)
+            # save changes
             brush.faces[i].polygon = ngon
-            if hasattr(f, "displacement") and len(ngon) != 4:  # solid is probably invalid
-                raise RuntimeError(f"face id {f.id}'s displacement is invalid (face has {len(ngon)} sides)")
+
+            if hasattr(face, "displacement") and len(ngon) != 4:
+                raise RuntimeError(
+                    f"invalid displacement ({len(ngon)} sides): {face.id=}")
+
+        editor_node = solid.nodes[-1]
+        assert editor_node.name == "editor"
+        rgb_888 = dict(editor_node.properties).get("color", (255, 0, 255))
+        brush.colour = tuple(rgb_channel / 255 for rgb_channel in rgb_888)
+
         return brush
 
     def as_node(self) -> valvevmf.VmfNode:
         # TODO: update autovisgroup hidden state in editor node
         if not hasattr(self, "_source"):  # generate base
-            editor_node = valvevmf.VmfNode("editor",
-                                           properties=[("color", None)])
-            self._source = valvevmf.VmfNode("solid",
-                                            properties=[("id", self.id)],
-                                            nodes=[editor_node])
+            editor_node = valvevmf.VmfNode(
+                "editor",
+                properties=[("color", None)])
+            self._source = valvevmf.VmfNode(
+                "solid",
+                properties=[("id", self.id)],
+                nodes=[editor_node])
         # trying to edit editor node without discarding anything
         editor_node = self._source.nodes[-1]
         assert editor_node.name == "editor"
@@ -136,7 +163,7 @@ class Brush:
         return any([hasattr(f, "displacement") for f in self.faces])
 
     # Operations
-    # TODO: clip_poly(self, plane): -> (Brush, Brush), new faces on plane use default["material"]
+    # TODO: slice(self, plane): -> (Brush, Brush), new faces on plane use default["material"]
 
     def translate(self, offset: vector.vec3, texture_lock=False, displacement_lock=False):
         # apply offset (arrow keys nudge) to plane & polygon of each face
@@ -201,23 +228,35 @@ class Displacement:
         return disp
 
     def as_node(self) -> valvevmf.VmfNode:
-        properties = {"power": self.power,
-                      "startposition": tuple(self.start),
-                      "flags": self.flags,
-                      "elevation": self.elevation,
-                      "subdiv": 1 if self.subdivided else 0}
-        nodes = {a: dict() for a in ("alphas", "distances", "normals", "offset_normals", "offsets", "triangle_tags")}
-        nodes = {"alphas": self.alphas,
-                 "distances": self.distances,
-                 "triangle_tags": self.triangle_tags}
-        nodes["normals"] = [list(itertools.chain(*map(tuple, row))) for row in self.normals]
-        nodes["offsets"] = [list(itertools.chain(*map(tuple, row))) for row in self.offsets]
-        nodes["offset_normals"] = [list(itertools.chain(*map(tuple, row))) for row in self.offset_normals]
-        dispinfo = valvevmf.VmfNode("dispinfo",
-                                    properties=list(properties.items()),
-                                    nodes=[valvevmf.Vmf(k, properties=("rows", v)) for k, v in nodes])
-        dispinfo.nodes.append(valvevmf.VmfNode("allowed_verts",
-                                               properties=[("10", self.allowed_verts)]))
+        properties = {
+            "power": self.power,
+            "startposition": tuple(self.start),
+            "flags": self.flags,
+            "elevation": self.elevation,
+            "subdiv": 1 if self.subdivided else 0}
+        nodes = {
+            "alphas": self.alphas,
+            "distances": self.distances,
+            "triangle_tags": self.triangle_tags}
+        nodes["normals"] = [
+            list(itertools.chain(*map(tuple, row)))
+            for row in self.normals]
+        nodes["offsets"] = [
+            list(itertools.chain(*map(tuple, row)))
+            for row in self.offsets]
+        nodes["offset_normals"] = [
+            list(itertools.chain(*map(tuple, row)))
+            for row in self.offset_normals]
+        dispinfo = valvevmf.VmfNode(
+            "dispinfo",
+            properties=list(properties.items()),
+            nodes=[valvevmf.Vmf(
+                key, properties=("rows", value))
+                for key, value in nodes])
+        dispinfo.nodes.append(valvevmf.VmfNode(
+            "allowed_verts",
+            properties=[("10", self.allowed_verts)]))
+        # TODO: triangle tags
         return dispinfo
 
     # Operations
@@ -285,7 +324,10 @@ class Face:
         face._source = side
         side_properties = dict(side.properties)
         face.id = side_properties["id"]
-        face.plane = plane_of(*[vector.vec3(*P) for P in side_properties["plane"]])
+        face.polygon = [
+            vector.vec3(*map(float, xyz))
+            for xyz in side_properties["plane"]]
+        face.plane = plane_of(*face.polygon)
         # ^ (vec3 normal, float distance)
         face.material = side_properties["material"]
         face.uaxis = TextureVector(*side_properties["uaxis"])
@@ -304,18 +346,20 @@ class Face:
             side_properties = dict()
         if len(self.polygon) < 3:
             raise RuntimeError(f"Invalid Face (side id: {self.id})")
-        side_properties.update({"id": self.id,
-                                "plane": [tuple(P) for P in self.polygon[:3]],
-                                # NOTE: plane will drift over time due to floating point precision loss
-                                # -- forcing the 3 points to be "on grid" (integers only) could mitigate this
-                                "material": self.material,
-                                "uaxis": (*self.uaxis.vector, self.uaxis.offset, self.uaxis.scale),
-                                "vaxis": (*self.vaxis.vector, self.vaxis.offset, self.vaxis.scale),
-                                "rotation": self.rotation,
-                                "lightmapscale": self.lightmap_scale,
-                                "smoothing_groups": self.smoothing_groups})
-        self._source = valvevmf.VmfNode("side",
-                                        properties=[*side_properties.items()])
+        side_properties.update({
+            "id": self.id,
+            "plane": [tuple(P) for P in self.polygon[:3]],
+            # NOTE: plane will drift over time due to floating point precision loss
+            # -- forcing the 3 points to be "on grid" (integers only) could mitigate this
+            "material": self.material,
+            "uaxis": (*self.uaxis.vector, self.uaxis.offset, self.uaxis.scale),
+            "vaxis": (*self.vaxis.vector, self.vaxis.offset, self.vaxis.scale),
+            "rotation": self.rotation,
+            "lightmapscale": self.lightmap_scale,
+            "smoothing_groups": self.smoothing_groups})
+        self._source = valvevmf.VmfNode(
+            "side",
+            properties=[*side_properties.items()])
         if hasattr(self, "displacement"):
             self._source.nodes.insert(0, self.displacement.as_node())
         return self._source
@@ -403,5 +447,5 @@ def clip_brush(brush: Brush, plane: Plane) -> (Brush, Brush):  # front, back
 
 def plane_of(A: vector.vec3, B: vector.vec3, C: vector.vec3) -> (vector.vec3, float):
     """returns the plane (vec3 normal, float distance) the triangle ABC represents"""
-    normal = ((A - B) * (C - B)).normalise()
+    normal = ((A - B) * (C - B)).normalised()
     return (normal, vector.dot(normal, A))

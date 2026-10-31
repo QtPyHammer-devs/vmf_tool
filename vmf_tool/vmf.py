@@ -10,9 +10,11 @@ import valvevmf
 from . import solid
 
 
-default = {"skybox": "sky_tf2_04",  # Team Fortress 2 default sky
-           "detail_vbsp": "detail.vbsp",
-           "detail_material": "detail/detailsprites"}
+# TODO: get defaults from external config dict
+default = {
+    "skybox": "sky_tf2_04",  # Team Fortress 2 default sky
+    "detail_vbsp": "detail.vbsp",
+    "detail_material": "detail/detailsprites"}
 # TODO: default viewsettings
 
 Entity = valvevmf.VmfNode
@@ -20,7 +22,7 @@ Entity = valvevmf.VmfNode
 
 class Vmf:
     _source: valvevmf.Vmf
-    brush_entities: Dict[int, List[int]]
+    entity_brushes: Dict[int, List[int]]
     # ^ {Entity.id, [Brush.id]}
     brushes: Dict[int, solid.Brush]
     # ^ {id: Brush}
@@ -46,32 +48,47 @@ class Vmf:
         # create base .vmf
         self._source = valvevmf.Vmf()
         # copy of tests/mapsrc/blank.vmf
-        nodes = [valvevmf.VmfNode("versioninfo",
-                                  properties=[("editorversion", 400), ("editorbuild", 7803),
-                                              ("mapversion", 0), ("formatversion", 100),
-                                              ("prefab", False)]),
-                 # TODO: define viewsettings in global defaults
-                 valvevmf.VmfNode("viewsettings",
-                                  properties=[("bSnapToGrid", True), ("bShowGrid", True),
-                                              ("bShowLogicalGrid", False), ("nGridSpacing", 64),
-                                              ("bShow3DGrid", False)]),
-                 valvevmf.VmfNode("world",
-                                  properties=[("id", 1),
-                                              ("mapversion", 0),  # save revision?
-                                              ("classname", "worldspawn"),
-                                              ("detailmaterial", self.detail_material),
-                                              ("detailvbsp", self.detail_vbsp),
-                                              ("maxpropscreenwidth", -1),
-                                              ("skyname", self.skybox)]),
-                 valvevmf.VmfNode("cameras",
-                                  properties=[("activecamera", -1)]),
-                 valvevmf.VmfNode("cordon",
-                                  properties=[("mins", (-1024, -1024, -1024)),
-                                              ("maxs", (1024, 1024, 1024)),
-                                              ("active", 0)])]
+        nodes = [
+            valvevmf.VmfNode(
+                "versioninfo",
+                properties=[
+                    ("editorversion", 400),
+                    ("editorbuild", 7803),
+                    ("mapversion", 0),
+                    ("formatversion", 100),
+                    ("prefab", False)]),
+            # TODO: viewsettings defaults from config
+            valvevmf.VmfNode(
+                "viewsettings",
+                properties=[
+                    ("bSnapToGrid", True),
+                    ("bShowGrid", True),
+                    ("bShowLogicalGrid", False),
+                    ("nGridSpacing", 64),
+                    ("bShow3DGrid", False)]),
+            valvevmf.VmfNode(
+                "world",
+                properties=[
+                    ("id", 1),
+                    ("mapversion", 0),  # save revision?
+                    ("classname", "worldspawn"),
+                    ("detailmaterial", self.detail_material),
+                    ("detailvbsp", self.detail_vbsp),
+                    ("maxpropscreenwidth", -1),
+                    ("skyname", self.skybox)]),
+            valvevmf.VmfNode(
+                "cameras",
+                properties=[
+                    ("activecamera", -1)]),
+            valvevmf.VmfNode(
+                "cordon",
+                properties=[
+                    ("mins", (-1024, -1024, -1024)),
+                    ("maxs", (1024, 1024, 1024)),
+                    ("active", 0)])]
         self._source.nodes = nodes
         # fresh dicts
-        self.brush_entities = dict()
+        self.entity_brushes = dict()
         self.brushes = dict()
         self.entities = dict()
         self.hidden = {"brushes": set(), "entities": set()}
@@ -102,13 +119,18 @@ class Vmf:
         """regenerate self.brushes from self._source"""
         self.hidden["brushes"] = set()
         self.brushes = dict()
-        for node in {n.name: n for n in self._source.nodes}["world"].nodes:
+
+        world_nodes = self._source.children("world")
+        assert len(world_nodes) == 1
+        worldspawn = world_nodes[0]
+
+        for node in worldspawn.nodes:
             is_hidden = False
             if node.name == "hidden":
                 is_hidden = True
                 assert len(node.properties) == 0
                 assert len(node.nodes) == 1
-                node = node.nodes[0]  # grab the hidden node
+                node = node.nodes[0]
             if node.name == "solid":
                 brush_id = dict(node.properties)["id"]
                 if is_hidden:
@@ -117,49 +139,49 @@ class Vmf:
                 self.brushes[brush_id] = solid.Brush.from_node(node)
 
     def reload_entities(self):
-        """regenerate self.entities & self.brush_entities from self._source; also extends self.brushes"""
+        """regenerate self.entities & self.entity_brushes from self._source; also extends self.brushes"""
         self.hidden["entities"] = set()
-        for brush_id in itertools.chain(*self.brush_entities.keys()):
+        for brush_id in itertools.chain(*self.entity_brushes.keys()):
             self.hidden["brushes"].remove(brush_id)
-        self.brush_entities = dict()
-        # ^ {Entity.id: [Brush.id]}
+        self.entity_brushes = dict()
+        # ^ {Entity.id: {Brush.id}}
         self.entities = dict()
         # ^ {Entity.id: Entity}
         for node in self._source.nodes:
             is_hidden = False
-            if node.name == "hidden":
+            if node.name == "hidden":  # TODO: func
                 is_hidden = True
                 assert len(node.properties) == 0
                 assert len(node.nodes) == 1
-                node = node.nodes[0]  # grab the hidden node
-            # NOTE: hidden nodes wrapping non-entities will be ignored
+                node = node.nodes[0]
             if node.name == "entity":
                 entity_id = dict(node.properties)["id"]
                 if is_hidden:
                     self.hidden["entities"].add(entity_id)
-                assert entity_id not in self.entities
+                assert entity_id not in set(self.entities.keys())
                 self.entities[entity_id] = node
-                # solid creation with some extra connections / hide state stuff
-                for child_node in node.nodes:
+                self.entity_brushes[entity_id] = set()
+                for child_node in node.nodes:  # grab solid
                     child_is_hidden = False
-                    if child_node.name == "hidden":
+                    if child_node.name == "hidden":  # TODO: func
                         child_is_hidden = True
                         assert len(child_node.properties) == 0
                         assert len(child_node.nodes) == 1
-                        child_node = child_node.nodes[0]  # grab the hidden node
+                        child_node = child_node.nodes[0]
                     if child_node.name == "solid":
                         brush_id = dict(child_node.properties)["id"]
-                        if entity_id not in self.brush_entities:
-                            self.brush_entities[entity_id] = set()
-                        self.brush_entities[entity_id].add(brush_id)
+                        self.entity_brushes[entity_id].add(brush_id)
+                        brush = solid.Brush.from_node(child_node)
+                        self.brushes[brush_id] = brush
                         if is_hidden or child_is_hidden:
                             self.hidden["brushes"].add(brush_id)
-                        assert brush_id not in self.brushes
-                        self.brushes[brush_id] = solid.Brush.from_node(child_node)
 
     def entity_id_of_brush(self, brush_id: int) -> int | None:
         """None if world brush"""
-        brush_entity = {b_id: e_id for e_id, b_ids in self.brush_entitites.items() for b_id in b_ids}
+        brush_entity = {
+            brush_id: entity_id
+            for entity_id, brush_ids in self.brush_entitites.items()
+            for brush_id in brush_ids}
         # ^ {Brush.id: Entity.id}
         return brush_entity.get(brush_id, None)
 
@@ -179,10 +201,16 @@ class Vmf:
                 entity_node = valvevmf.VmfNode("hidden", nodes=[entity_node])
             entity_nodes[entity_id] = entity_node
         # brushes second
-        ignored_world_nodes = [n for n in _source_nodes["world"].nodes if n.name not in ("solid", "hidden")]
+        ignored_world_nodes = [
+            node
+            for node in _source_nodes["world"].nodes
+            if node.name not in ("solid", "hidden")]
         _source_nodes["world"].nodes = list()
         # collect brushes
-        brush_entity = {b_id: e_id for e_id, b_ids in self.brush_entities.items() for b_id in b_ids}
+        brush_entity = {
+            brush_id: entity_id
+            for entity_id, brush_ids in self.entity_brushes.items()
+            for brush_id in brush_ids}
         # ^ {Brush.id: Entity.id}
         for brush in self.brushes.values():
             solid_node = brush.as_node()

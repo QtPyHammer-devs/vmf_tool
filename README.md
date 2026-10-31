@@ -11,7 +11,12 @@ Created as part of [QtPyHammer](https://github.com/QtPyHammer-devs/QtPyHammer)
 To use the latest version, clone from git & install dependencies:
 ```
 $ git clone git@github.com:QtPyHammer-devs/vmf_tool.git
-$ python -m pip install -r requirements.txt
+$ cd vmf_tool
+$ python -m venv .env
+$ .env/bin/activate
+(env) $ python -m pip install -U pip
+(env) $ python -m pip install -e .
+(env) $ python -m pip install -e .[tests]
 ```
 
 Or to use the latest stable release, install via [pip](https://pypi.org/project/vmf-tool/) (Python 3.7+):
@@ -23,7 +28,7 @@ pip install vmf_tool
 ```python
 >>> import vmf_tool
 >>> some_map = vmf_tool.Vmf.from_file("mapsrc/some_map.vmf")
->>> some_map.save_as("mapsrc/some_map.vmf.copy")
+>>> some_map.save_as("mapsrc/some_map.copy.vmf")
 ```
 <!--
 >>> mins = (-256,) * 3

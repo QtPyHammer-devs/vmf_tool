@@ -1,1 +1,0 @@
-git+https://github.com/QtPyHammer-devs/ValveVMF@master#egg=valvevmf
