@@ -15,7 +15,7 @@ class BaseEntity:
         raise NotImplementedError()
 
     @classmethod
-    def from_node(cls: Entity, node: valvevmf.VmfNode) -> Entity:
+    def from_node(cls, node: valvevmf.VmfNode) -> BaseEntity:
         out = cls()
         out._source = node
         raise NotImplementedError()
