@@ -48,8 +48,14 @@ def test_load_hidden():
     assert len(vmf_file.hidden["brushes"]) == total_brushes
     assert len(vmf_file.brushes) == 18
     assert len(vmf_file.entities) == 4
-    assert len(vmf_file.entity_brushes) == 2
-    # TODO: assert func_detail & trigger_capture_area
+
+    # NOTE: 1x func_detail & 1x trigger_capture_area
+    assert len(vmf_file.entity_brushes) == 4  # same as num entities
+    entities_with_brushes = [
+        entity_id
+        for entity_id, brush_id_set in vmf_file.entity_brushes.items()
+        if len(brush_id_set) > 0]
+    assert len(entities_with_brushes) == 2
 
     # is everything hidden?
     assert set(vmf_file.hidden["brushes"]) == set(vmf_file.brushes)
@@ -78,7 +84,6 @@ def test_save_hidden():
     assert len(test2_resaved.hidden["brushes"]) == 1 + 8
 
     # NOTE: we delete the saved file only if all tests succeed
-    # -- this way we can peek at the raw text; more info should help with debugging
     os.remove(test2_resaved.filename)
     vmx = test2_resaved.filename[:-1] + "x"
     if os.path.exists(vmx):

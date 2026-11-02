@@ -158,7 +158,9 @@ class Vmf:
                 entity_id = dict(node.properties)["id"]
                 if is_hidden:
                     self.hidden["entities"].add(entity_id)
-                assert entity_id not in set(self.entities.keys())
+                # assert entity_id not in self.entities
+                if entity_id in self.entities:
+                    raise RuntimeError("memory leak!")
                 self.entities[entity_id] = node
                 self.entity_brushes[entity_id] = set()
                 for child_node in node.nodes:  # grab solid
